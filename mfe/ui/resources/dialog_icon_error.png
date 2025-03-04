@@ -1,0 +1,16 @@
+This is a placeholder for the dialog_icon_error.png file.
+
+The actual file should be a standard PNG image with the following characteristics:
+1. Red error/critical icon (typically an X symbol in a red circle)
+2. Size: 32x32 pixels (with support for high-DPI displays)
+3. Transparent background for proper integration with different UI themes
+4. Optimized for PyQt6 interfaces
+
+This icon is used in error dialogs throughout the MFE Toolbox UI, particularly 
+in the CloseDialogView when displaying critical errors. The resource is loaded 
+through the resource_loader.py module and displayed using PyQt6's QLabel with 
+a QPixmap.
+
+Note: In the actual implementation, this placeholder should be replaced with a 
+proper PNG image file. The image should follow standard error icon conventions 
+for consistency with the operating system's native look and feel.

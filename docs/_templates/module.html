@@ -1,0 +1,871 @@
+{# MFE Toolbox Documentation - Python Module Template #}
+{# This template extends the page template to provide specialized structure for Python module documentation #}
+
+{% extends "page.html" %}
+
+{# Add custom CSS classes to the body for module-specific styling #}
+{% block body_tag %}
+<body class="mfe-docs python-docs module-template" data-spy="scroll" data-target=".contents-sidebar">
+{% endblock %}
+
+{# Customize the module documentation content #}
+{% block body %}
+<div class="module-documentation">
+  {# Module header with import information #}
+  <div class="module-header">
+    <h1 class="module-title">
+      <span class="module-name">{{ module }}</span>
+      <span class="module-type">module</span>
+    </h1>
+    
+    {# Module import example #}
+    <div class="module-import-example">
+      <div class="import-title">Import this module:</div>
+      <div class="highlight-python">
+        <div class="highlight">
+          <pre><code class="python">import {{ module }}</code></pre>
+        </div>
+      </div>
+      
+      {% if submodules %}
+      <div class="import-title">Import specific components:</div>
+      <div class="highlight-python">
+        <div class="highlight">
+          <pre><code class="python">from {{ module }} import {{ submodules|join(', ') }}</code></pre>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    
+    {# Module summary #}
+    <div class="module-summary">
+      {{ summary }}
+    </div>
+  </div>
+  
+  {# Module dependency visualization #}
+  {% if dependencies %}
+  <div class="module-dependencies">
+    <h2>Module Dependencies</h2>
+    <div class="dependency-diagram">
+      <div class="mermaid">
+        graph TD
+          {{ module_id }}["{{ module }}"]
+          {% for dep in dependencies %}
+          {{ dep.id }}["{{ dep.name }}"]
+          {{ module_id }} --> {{ dep.id }}
+          {% endfor %}
+          
+          {% if dependents %}
+          {% for dep in dependents %}
+          {{ dep.id }}["{{ dep.name }}"]
+          {{ dep.id }} --> {{ module_id }}
+          {% endfor %}
+          {% endif %}
+          
+          classDef current fill:#4287f5,stroke:#333,stroke-width:2px,color:white;
+          classDef dependency fill:#f9f9f9,stroke:#333,stroke-width:1px;
+          classDef dependent fill:#e1f5fe,stroke:#333,stroke-width:1px;
+          
+          class {{ module_id }} current;
+          {% for dep in dependencies %}
+          class {{ dep.id }} dependency;
+          {% endfor %}
+          {% if dependents %}
+          {% for dep in dependents %}
+          class {{ dep.id }} dependent;
+          {% endfor %}
+          {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {# Module content organization #}
+  <div class="module-contents">
+    <h2>Module Contents</h2>
+    
+    {# Classes section #}
+    {% if classes %}
+    <div class="module-section">
+      <h3 class="section-title">Classes</h3>
+      <div class="section-content">
+        <ul class="class-list">
+          {% for class in classes %}
+          <li class="class-item">
+            <a href="#{{ class.id }}" class="class-link">
+              <span class="class-name">{{ class.name }}</span>
+              {% if class.bases %}
+              <span class="class-bases">({{ class.bases|join(', ') }})</span>
+              {% endif %}
+            </a>
+            <div class="class-summary">{{ class.summary }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Functions section #}
+    {% if functions %}
+    <div class="module-section">
+      <h3 class="section-title">Functions</h3>
+      <div class="section-content">
+        <ul class="function-list">
+          {% for function in functions %}
+          <li class="function-item">
+            <a href="#{{ function.id }}" class="function-link">
+              <span class="function-name">{{ function.name }}</span>
+              <span class="function-signature">({{ function.signature }})</span>
+            </a>
+            <div class="function-summary">{{ function.summary }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Variables and constants section #}
+    {% if variables %}
+    <div class="module-section">
+      <h3 class="section-title">Variables and Constants</h3>
+      <div class="section-content">
+        <ul class="variable-list">
+          {% for variable in variables %}
+          <li class="variable-item">
+            <span class="variable-name">{{ variable.name }}</span>
+            {% if variable.type %}
+            <span class="variable-type">: {{ variable.type }}</span>
+            {% endif %}
+            <div class="variable-summary">{{ variable.summary }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Submodules section #}
+    {% if submodule_list %}
+    <div class="module-section">
+      <h3 class="section-title">Submodules</h3>
+      <div class="section-content">
+        <ul class="submodule-list">
+          {% for submodule in submodule_list %}
+          <li class="submodule-item">
+            <a href="{{ submodule.link }}" class="submodule-link">
+              <span class="submodule-name">{{ submodule.name }}</span>
+            </a>
+            <div class="submodule-summary">{{ submodule.summary }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  {# Detailed documentation #}
+  <div class="module-details">
+    {# Class details #}
+    {% if classes %}
+    <div class="detail-section">
+      <h2>Class Details</h2>
+      {% for class in classes %}
+      <div class="class-detail" id="{{ class.id }}">
+        <div class="class-header">
+          <h3 class="class-title">
+            <span class="class-name">{{ class.name }}</span>
+            {% if class.bases %}
+            <span class="class-bases">({{ class.bases|join(', ') }})</span>
+            {% endif %}
+          </h3>
+        </div>
+        
+        <div class="class-description">
+          {{ class.description }}
+        </div>
+        
+        {% if class.methods %}
+        <div class="class-methods">
+          <h4>Methods</h4>
+          <ul class="method-list">
+            {% for method in class.methods %}
+            <li class="method-item">
+              <div class="method-header" id="{{ method.id }}">
+                <span class="method-name">{{ method.name }}</span>
+                <span class="method-signature">({{ method.signature }})</span>
+                {% if method.decorator %}
+                <span class="method-decorator">{{ method.decorator }}</span>
+                {% endif %}
+              </div>
+              <div class="method-description">
+                {{ method.description }}
+              </div>
+              
+              {% if method.parameters %}
+              <div class="method-parameters">
+                <h5>Parameters</h5>
+                <ul class="parameter-list">
+                  {% for param in method.parameters %}
+                  <li class="parameter-item">
+                    <span class="parameter-name">{{ param.name }}</span>
+                    {% if param.type %}
+                    <span class="parameter-type">: {{ param.type }}</span>
+                    {% endif %}
+                    <div class="parameter-description">{{ param.description }}</div>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+              
+              {% if method.returns %}
+              <div class="method-returns">
+                <h5>Returns</h5>
+                <div class="returns-content">
+                  {% if method.returns.type %}
+                  <span class="returns-type">{{ method.returns.type }}</span>
+                  {% endif %}
+                  <div class="returns-description">{{ method.returns.description }}</div>
+                </div>
+              </div>
+              {% endif %}
+              
+              {% if method.examples %}
+              <div class="method-examples">
+                <h5>Examples</h5>
+                {% for example in method.examples %}
+                <div class="example-content">
+                  {{ example }}
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        
+        {% if class.attributes %}
+        <div class="class-attributes">
+          <h4>Attributes</h4>
+          <ul class="attribute-list">
+            {% for attr in class.attributes %}
+            <li class="attribute-item">
+              <span class="attribute-name">{{ attr.name }}</span>
+              {% if attr.type %}
+              <span class="attribute-type">: {{ attr.type }}</span>
+              {% endif %}
+              <div class="attribute-description">{{ attr.description }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        
+        {% if class.examples %}
+        <div class="class-examples">
+          <h4>Examples</h4>
+          {% for example in class.examples %}
+          <div class="example-content">
+            {{ example }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    
+    {# Function details #}
+    {% if functions %}
+    <div class="detail-section">
+      <h2>Function Details</h2>
+      {% for function in functions %}
+      <div class="function-detail" id="{{ function.id }}">
+        <div class="function-header">
+          <h3 class="function-title">
+            <span class="function-name">{{ function.name }}</span>
+            <span class="function-signature">({{ function.signature }})</span>
+            {% if function.decorator %}
+            <span class="function-decorator">{{ function.decorator }}</span>
+            {% endif %}
+          </h3>
+        </div>
+        
+        <div class="function-description">
+          {{ function.description }}
+        </div>
+        
+        {% if function.parameters %}
+        <div class="function-parameters">
+          <h4>Parameters</h4>
+          <ul class="parameter-list">
+            {% for param in function.parameters %}
+            <li class="parameter-item">
+              <span class="parameter-name">{{ param.name }}</span>
+              {% if param.type %}
+              <span class="parameter-type">: {{ param.type }}</span>
+              {% endif %}
+              <div class="parameter-description">{{ param.description }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        
+        {% if function.returns %}
+        <div class="function-returns">
+          <h4>Returns</h4>
+          <div class="returns-content">
+            {% if function.returns.type %}
+            <span class="returns-type">{{ function.returns.type }}</span>
+            {% endif %}
+            <div class="returns-description">{{ function.returns.description }}</div>
+          </div>
+        </div>
+        {% endif %}
+        
+        {% if function.examples %}
+        <div class="function-examples">
+          <h4>Examples</h4>
+          {% for example in function.examples %}
+          <div class="example-content">
+            {{ example }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  
+  {# Module usage examples #}
+  {% if examples %}
+  <div class="module-examples">
+    <h2>Usage Examples</h2>
+    {% for example in examples %}
+    <div class="example-section">
+      <h3 class="example-title">{{ example.title }}</h3>
+      <div class="example-description">
+        {{ example.description }}
+      </div>
+      <div class="example-code">
+        {{ example.code }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {# Related modules navigation #}
+  {% if related_modules %}
+  <div class="related-modules">
+    <h2>Related Modules</h2>
+    <ul class="related-module-list">
+      {% for module in related_modules %}
+      <li class="related-module-item">
+        <a href="{{ module.link }}" class="related-module-link">
+          <span class="related-module-name">{{ module.name }}</span>
+        </a>
+        <div class="related-module-summary">{{ module.summary }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{# Add custom styling for Python module documentation #}
+{% block extrahead %}
+{{ super() }}
+<style type="text/css">
+  /* Module documentation styling */
+  .module-documentation {
+    margin-bottom: 3rem;
+  }
+  
+  /* Module header */
+  .module-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .module-title {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 1rem;
+  }
+  
+  .module-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+    font-size: 2rem;
+  }
+  
+  .module-type {
+    font-size: 1rem;
+    color: #666;
+    margin-left: 0.5rem;
+    font-style: italic;
+  }
+  
+  /* Import examples */
+  .module-import-example {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+  
+  .import-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+  
+  /* Module summary */
+  .module-summary {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+  
+  /* Module dependencies */
+  .module-dependencies {
+    margin: 2rem 0;
+  }
+  
+  .dependency-diagram {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  /* Module contents */
+  .module-contents {
+    margin: 2rem 0;
+  }
+  
+  .module-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .section-title {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.5rem;
+  }
+  
+  /* Lists styling */
+  .class-list,
+  .function-list,
+  .variable-list,
+  .submodule-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .class-item,
+  .function-item,
+  .variable-item,
+  .submodule-item {
+    margin: 0.8rem 0;
+    padding: 0.5rem;
+    border-left: 3px solid transparent;
+    transition: border-color 0.2s ease;
+  }
+  
+  .class-item:hover,
+  .function-item:hover,
+  .submodule-item:hover {
+    border-left-color: #2980B9;
+    background-color: rgba(41, 128, 185, 0.05);
+  }
+  
+  /* Class styling */
+  .class-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #008b8b;
+  }
+  
+  .class-bases {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .class-summary {
+    margin-top: 0.3rem;
+    color: #333;
+  }
+  
+  /* Function styling */
+  .function-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #7c4dff;
+  }
+  
+  .function-signature {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .function-summary {
+    margin-top: 0.3rem;
+    color: #333;
+  }
+  
+  /* Variable styling */
+  .variable-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #e91e63;
+  }
+  
+  .variable-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .variable-summary {
+    margin-top: 0.3rem;
+    color: #333;
+  }
+  
+  /* Submodule styling */
+  .submodule-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+  }
+  
+  .submodule-summary {
+    margin-top: 0.3rem;
+    color: #333;
+  }
+  
+  /* Detail sections */
+  .detail-section {
+    margin: 2rem 0;
+  }
+  
+  .class-detail,
+  .function-detail {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #2980B9;
+  }
+  
+  .class-detail {
+    border-left-color: #008b8b;
+  }
+  
+  .function-detail {
+    border-left-color: #7c4dff;
+  }
+  
+  /* Method styling */
+  .method-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .method-item {
+    margin: 1.5rem 0;
+    padding: 0.8rem;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+    border-left: 3px solid #9c27b0;
+  }
+  
+  .method-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #9c27b0;
+  }
+  
+  .method-signature {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  
+  .method-decorator {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #ff5722;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  
+  /* Parameter styling */
+  .parameter-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+  }
+  
+  .parameter-item {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #e1e4e8;
+  }
+  
+  .parameter-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .parameter-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-style: italic;
+  }
+  
+  /* Returns styling */
+  .returns-content {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #4caf50;
+  }
+  
+  .returns-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #4caf50;
+    font-style: italic;
+  }
+  
+  /* Attribute styling */
+  .attribute-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+  }
+  
+  .attribute-item {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #ff9800;
+  }
+  
+  .attribute-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #ff9800;
+  }
+  
+  .attribute-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-style: italic;
+  }
+  
+  /* Example styling */
+  .example-content {
+    margin: 1rem 0;
+  }
+  
+  /* Related modules */
+  .related-modules {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .related-module-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .related-module-item {
+    flex: 1 0 300px;
+    padding: 0.8rem;
+    background-color: #fff;
+    border-radius: 4px;
+    border: 1px solid #e1e4e8;
+    transition: box-shadow 0.2s ease;
+  }
+  
+  .related-module-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .related-module-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+  }
+  
+  .related-module-summary {
+    margin-top: 0.3rem;
+    color: #333;
+    font-size: 0.9rem;
+  }
+  
+  /* Numba JIT decorator highlighting */
+  .function-decorator:contains("jit"),
+  .method-decorator:contains("jit") {
+    color: #ff5722 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Responsive design */
+  @media screen and (max-width: 768px) {
+    .related-module-item {
+      flex: 1 0 100%;
+    }
+    
+    .module-title {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .module-type {
+      margin-left: 0;
+      margin-top: 0.3rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{# Add custom JavaScript for Python module documentation features #}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize mermaid diagrams for module dependencies
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'neutral',
+        securityLevel: 'loose',
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          curve: 'basis'
+        }
+      });
+    }
+    
+    // Add copy buttons to import examples
+    document.querySelectorAll('.module-import-example pre').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-button';
+      button.textContent = 'Copy';
+      button.addEventListener('click', function() {
+        var code = block.textContent;
+        navigator.clipboard.writeText(code).then(function() {
+          button.textContent = 'Copied!';
+          setTimeout(function() {
+            button.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+      
+      var buttonContainer = document.createElement('div');
+      buttonContainer.className = 'copy-button-container';
+      buttonContainer.appendChild(button);
+      
+      block.parentNode.insertBefore(buttonContainer, block);
+    });
+    
+    // Add special styling for Numba JIT decorators
+    document.querySelectorAll('code').forEach(function(el) {
+      if (el.textContent.includes('@jit') || el.textContent.includes('@njit')) {
+        el.classList.add('numba-decorator');
+      }
+    });
+    
+    // Add collapsible sections for module contents
+    document.querySelectorAll('.module-section h3').forEach(function(header) {
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', function() {
+        var content = this.nextElementSibling;
+        if (content.style.display === 'none') {
+          content.style.display = '';
+          this.classList.remove('collapsed');
+        } else {
+          content.style.display = 'none';
+          this.classList.add('collapsed');
+        }
+      });
+    });
+    
+    // Add smooth scrolling for internal links
+    document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href').substring(1);
+        var targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 60,
+            behavior: 'smooth'
+          });
+          
+          // Update URL hash without jumping
+          history.pushState(null, null, '#' + targetId);
+          
+          // Highlight the target element briefly
+          targetElement.classList.add('highlight-target');
+          setTimeout(function() {
+            targetElement.classList.remove('highlight-target');
+          }, 2000);
+        }
+      });
+    });
+    
+    // Add module navigation tracking
+    var lastVisitedModules = localStorage.getItem('lastVisitedModules');
+    var currentModule = document.querySelector('.module-name').textContent;
+    
+    if (lastVisitedModules) {
+      lastVisitedModules = JSON.parse(lastVisitedModules);
+      
+      // Add current module if not already in the list
+      if (!lastVisitedModules.includes(currentModule)) {
+        lastVisitedModules.unshift(currentModule);
+        // Keep only the last 5 modules
+        if (lastVisitedModules.length > 5) {
+          lastVisitedModules = lastVisitedModules.slice(0, 5);
+        }
+        localStorage.setItem('lastVisitedModules', JSON.stringify(lastVisitedModules));
+      }
+    } else {
+      // Initialize with current module
+      localStorage.setItem('lastVisitedModules', JSON.stringify([currentModule]));
+    }
+  });
+</script>
+{% endblock %}

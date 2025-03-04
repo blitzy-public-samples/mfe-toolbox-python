@@ -1,0 +1,171 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mfe-toolbox"
+version = "4.0.0"
+description = "Financial Econometrics Toolbox for Python"
+readme = "README.md"
+authors = [
+    {name = "Kevin Sheppard", email = "kevin.sheppard@economics.ox.ac.uk"}
+]
+license = {text = "MIT"}
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Information Analysis"
+]
+keywords = [
+    "econometrics", 
+    "finance", 
+    "volatility", 
+    "garch", 
+    "time-series", 
+    "statistics", 
+    "bootstrap", 
+    "realized-volatility"
+]
+dependencies = [
+    "numpy>=1.26.0",
+    "scipy>=1.11.3",
+    "pandas>=2.1.1",
+    "numba>=0.58.0",
+    "statsmodels>=0.14.0",
+    "matplotlib>=3.8.0",
+    "PyQt6>=6.5.0;python_version>='3.12'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.5.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "isort>=5.12.0"
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.3.0",
+    "nbsphinx>=0.9.0",
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0"
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "hypothesis>=6.0.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/bashtage/arch"
+"Bug Tracker" = "https://github.com/bashtage/arch/issues"
+"Documentation" = "https://github.com/bashtage/arch/docs"
+"Source Code" = "https://github.com/bashtage/arch"
+
+[project.scripts]
+mfe-armax-gui = "mfe.ui.armax_app:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["mfe"]
+
+[tool.setuptools.package-data]
+"mfe.ui.resources" = ["*.png"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "gui: marks tests that require a GUI environment",
+    "numba: marks tests that require Numba"
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "scipy.*",
+    "pandas.*",
+    "numba.*",
+    "statsmodels.*",
+    "matplotlib.*",
+    "PyQt6.*"
+]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+''' 
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_gitignore = true
+skip_glob = ["docs/*", "build/*", "dist/*"]
+
+[tool.coverage.run]
+source = ["mfe"]
+omit = [
+    "tests/*",
+    "setup.py",
+    "docs/*",
+    "mfe/__main__.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError"
+]

@@ -1,0 +1,20 @@
+Since I'm unable to access the source files directly, I'll create a detailed description of what the image should contain based on the requirements and the technical specification.
+
+# docs/_static/images/armax_about_dialog.png
+```
+This file is a screenshot image of the About dialog for the ARMAX GUI interface. The image should show:
+
+1. A modal dialog window with the title "About ARMAX GUI" in the title bar
+2. The Oxford University logo prominently displayed at the top center of the dialog
+3. Text content including:
+   - "ARMAX GUI Interface"
+   - "Version 4.0" (matching the MFE Toolbox version)
+   - "Part of the MFE Toolbox"
+   - "© 2009 Kevin Sheppard"
+   - "University of Oxford"
+4. A "Close" button at the bottom of the dialog
+5. Clean, modern styling consistent with PyQt6 design standards
+6. The dialog should appear centered on a neutral background
+
+This image represents the PyQt6 implementation of the About dialog, replacing the previous MATLAB-based version, with updated branding and version information reflecting the Python-based implementation.
+```

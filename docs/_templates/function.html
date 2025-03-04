@@ -1,0 +1,765 @@
+{# MFE Toolbox Documentation - Python Function Template #}
+{# This template extends the page template to provide specialized structure for Python function documentation #}
+
+{% extends "page.html" %}
+
+{# Add custom CSS classes to the body for function-specific styling #}
+{% block body_tag %}
+<body class="mfe-docs python-docs function-template" data-spy="scroll" data-target=".contents-sidebar">
+{% endblock %}
+
+{# Customize the function documentation content #}
+{% block body %}
+<div class="function-documentation">
+  {# Function header with import information #}
+  <div class="function-header">
+    <h1 class="function-title">
+      <span class="function-name">{{ function_name }}</span>
+      <span class="function-signature">({{ function_signature }})</span>
+    </h1>
+    
+    {# Function import example #}
+    <div class="function-import-example">
+      <div class="import-title">Import this function:</div>
+      <div class="highlight-python">
+        <div class="highlight">
+          <pre><code class="python">from {{ module }} import {{ function_name }}</code></pre>
+        </div>
+      </div>
+    </div>
+    
+    {# Function summary #}
+    <div class="function-summary">
+      {{ summary }}
+    </div>
+    
+    {# Function decorator if present #}
+    {% if decorator %}
+    <div class="function-decorator">
+      <code class="python">{{ decorator }}</code>
+    </div>
+    {% endif %}
+  </div>
+  
+  {# Function signature with type annotations #}
+  <div class="function-signature-block">
+    <h2>Signature</h2>
+    <div class="signature-code">
+      <div class="highlight-python">
+        <div class="highlight">
+          <pre><code class="python">{{ function_name }}({{ function_signature_with_types }})</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  {# Function description #}
+  <div class="function-description">
+    <h2>Description</h2>
+    <div class="description-content">
+      {{ description }}
+    </div>
+  </div>
+  
+  {# Parameters section #}
+  {% if parameters %}
+  <div class="function-parameters">
+    <h2>Parameters</h2>
+    <table class="parameters-table">
+      <thead>
+        <tr>
+          <th>Parameter</th>
+          <th>Type</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for param in parameters %}
+        <tr>
+          <td class="param-name">{{ param.name }}</td>
+          <td class="param-type">{{ param.type }}</td>
+          <td class="param-default">{% if param.default %}{{ param.default }}{% else %}<em>required</em>{% endif %}</td>
+          <td class="param-description">{{ param.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  
+  {# Returns section #}
+  {% if returns %}
+  <div class="function-returns">
+    <h2>Returns</h2>
+    <table class="returns-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="returns-type">{{ returns.type }}</td>
+          <td class="returns-description">{{ returns.description }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  
+  {# Raises section #}
+  {% if raises %}
+  <div class="function-raises">
+    <h2>Raises</h2>
+    <table class="raises-table">
+      <thead>
+        <tr>
+          <th>Exception</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exception in raises %}
+        <tr>
+          <td class="exception-type">{{ exception.type }}</td>
+          <td class="exception-description">{{ exception.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  
+  {# Examples section #}
+  {% if examples %}
+  <div class="function-examples">
+    <h2>Examples</h2>
+    {% for example in examples %}
+    <div class="example-section">
+      {% if example.title %}
+      <h3 class="example-title">{{ example.title }}</h3>
+      {% endif %}
+      
+      {% if example.description %}
+      <div class="example-description">
+        {{ example.description }}
+      </div>
+      {% endif %}
+      
+      <div class="example-code">
+        <div class="highlight-python">
+          <div class="highlight">
+            <pre><code class="python">{{ example.code }}</code></pre>
+          </div>
+        </div>
+      </div>
+      
+      {% if example.output %}
+      <div class="example-output">
+        <h4>Output</h4>
+        <div class="output-content">
+          <pre><code>{{ example.output }}</code></pre>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {# Notes section #}
+  {% if notes %}
+  <div class="function-notes">
+    <h2>Notes</h2>
+    <div class="notes-content">
+      {{ notes }}
+    </div>
+  </div>
+  {% endif %}
+  
+  {# References section #}
+  {% if references %}
+  <div class="function-references">
+    <h2>References</h2>
+    <div class="references-content">
+      {{ references }}
+    </div>
+  </div>
+  {% endif %}
+  
+  {# See also section #}
+  {% if see_also %}
+  <div class="see-also">
+    <h2>See Also</h2>
+    <ul class="see-also-list">
+      {% for item in see_also %}
+      <li class="see-also-item">
+        <a href="{{ item.link }}" class="see-also-link">
+          <span class="see-also-name">{{ item.name }}</span>
+        </a>
+        {% if item.summary %}
+        <span class="see-also-summary">: {{ item.summary }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  
+  {# Implementation notes for developers #}
+  {% if implementation_notes %}
+  <div class="implementation-notes">
+    <h2>Implementation Notes</h2>
+    <div class="notes-content">
+      {{ implementation_notes }}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{# Add custom styling for Python function documentation #}
+{% block extrahead %}
+{{ super() }}
+<style type="text/css">
+  /* Function documentation styling */
+  .function-documentation {
+    margin-bottom: 3rem;
+  }
+  
+  /* Function header */
+  .function-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .function-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  
+  .function-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #7c4dff;
+    font-size: 2rem;
+  }
+  
+  .function-signature {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 1rem;
+    margin-left: 0.5rem;
+  }
+  
+  /* Import examples */
+  .function-import-example {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+  
+  .import-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+  
+  /* Function summary */
+  .function-summary {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+  
+  /* Function decorator */
+  .function-decorator {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    margin: 1rem 0;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  /* Numba JIT decorator highlighting */
+  .function-decorator code:contains("@jit") {
+    color: #ff5722 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Function signature block */
+  .function-signature-block {
+    margin: 2rem 0;
+  }
+  
+  .signature-code {
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+  
+  /* Function description */
+  .function-description {
+    margin: 2rem 0;
+  }
+  
+  .description-content {
+    line-height: 1.6;
+  }
+  
+  /* Parameters section */
+  .function-parameters {
+    margin: 2rem 0;
+  }
+  
+  .parameters-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  
+  .parameters-table th {
+    background-color: #f6f8fa;
+    padding: 0.8rem;
+    text-align: left;
+    border: 1px solid #e1e4e8;
+    font-weight: bold;
+  }
+  
+  .parameters-table td {
+    padding: 0.8rem;
+    border: 1px solid #e1e4e8;
+    vertical-align: top;
+  }
+  
+  .param-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .param-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+  }
+  
+  .param-default {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-style: italic;
+  }
+  
+  /* Returns section */
+  .function-returns {
+    margin: 2rem 0;
+  }
+  
+  .returns-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  
+  .returns-table th {
+    background-color: #f6f8fa;
+    padding: 0.8rem;
+    text-align: left;
+    border: 1px solid #e1e4e8;
+    font-weight: bold;
+  }
+  
+  .returns-table td {
+    padding: 0.8rem;
+    border: 1px solid #e1e4e8;
+    vertical-align: top;
+  }
+  
+  .returns-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #4caf50;
+  }
+  
+  /* Raises section */
+  .function-raises {
+    margin: 2rem 0;
+  }
+  
+  .raises-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  
+  .raises-table th {
+    background-color: #f6f8fa;
+    padding: 0.8rem;
+    text-align: left;
+    border: 1px solid #e1e4e8;
+    font-weight: bold;
+  }
+  
+  .raises-table td {
+    padding: 0.8rem;
+    border: 1px solid #e1e4e8;
+    vertical-align: top;
+  }
+  
+  .exception-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #f44336;
+    font-weight: bold;
+  }
+  
+  /* Examples section */
+  .function-examples {
+    margin: 2rem 0;
+  }
+  
+  .example-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .example-title {
+    margin-top: 0;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .example-description {
+    margin-bottom: 1rem;
+  }
+  
+  .example-code {
+    margin: 1rem 0;
+    position: relative;
+  }
+  
+  .example-output {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  .output-content pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  /* Notes section */
+  .function-notes {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #e8f4fd;
+    border-radius: 4px;
+    border-left: 4px solid #2980B9;
+  }
+  
+  /* References section */
+  .function-references {
+    margin: 2rem 0;
+  }
+  
+  /* See also section */
+  .see-also {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .see-also-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .see-also-item {
+    margin: 0.5rem 0;
+  }
+  
+  .see-also-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+  }
+  
+  /* Implementation notes */
+  .implementation-notes {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #9e9e9e;
+  }
+  
+  /* Python-specific styling */
+  code.python {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    background-color: #f6f8fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9rem;
+  }
+  
+  /* MATLAB to Python conversion highlighting */
+  .matlab-to-python {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-left: 3px solid #5b39f3;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+  
+  .matlab-to-python::before {
+    content: "MATLAB → Python";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #5b39f3;
+    font-size: 0.9rem;
+  }
+  
+  .matlab-to-python-inline {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-bottom: 1px dotted #5b39f3;
+    padding: 0 0.2em;
+    color: #5b39f3;
+  }
+  
+  /* Copy button for code blocks */
+  .copy-button-container {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+  }
+  
+  .copy-button {
+    background-color: #f8f9fa;
+    border: 1px solid #e1e4e8;
+    border-radius: 3px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .copy-button:hover {
+    background-color: #e1e4e8;
+  }
+  
+  /* Responsive design */
+  @media screen and (max-width: 992px) {
+    .function-title {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .function-signature {
+      margin-left: 0;
+      margin-top: 0.3rem;
+    }
+  }
+  
+  @media screen and (max-width: 768px) {
+    .parameters-table,
+    .returns-table,
+    .raises-table {
+      display: block;
+      overflow-x: auto;
+    }
+    
+    .signature-code {
+      overflow-x: auto;
+    }
+  }
+  
+  /* Print styling */
+  @media print {
+    .function-documentation {
+      font-size: 10pt;
+    }
+    
+    .function-examples,
+    .example-section,
+    .function-notes,
+    .implementation-notes {
+      page-break-inside: avoid;
+      border-left: 1px solid #ccc !important;
+    }
+    
+    code.python {
+      background-color: transparent !important;
+      padding: 0 !important;
+    }
+    
+    .parameters-table th,
+    .returns-table th,
+    .raises-table th {
+      background-color: transparent !important;
+    }
+    
+    .copy-button-container {
+      display: none;
+    }
+  }
+</style>
+{% endblock %}
+
+{# Add custom JavaScript for Python function documentation features #}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add copy buttons to code blocks
+    document.querySelectorAll('.highlight pre').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-button';
+      button.textContent = 'Copy';
+      button.addEventListener('click', function() {
+        var code = block.textContent;
+        navigator.clipboard.writeText(code).then(function() {
+          button.textContent = 'Copied!';
+          setTimeout(function() {
+            button.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+      
+      var buttonContainer = document.createElement('div');
+      buttonContainer.className = 'copy-button-container';
+      buttonContainer.appendChild(button);
+      
+      block.parentNode.insertBefore(buttonContainer, block);
+    });
+    
+    // Add special styling for Numba JIT decorators
+    document.querySelectorAll('code').forEach(function(el) {
+      if (el.textContent.includes('@jit') || el.textContent.includes('@njit')) {
+        el.classList.add('numba-decorator');
+      }
+    });
+    
+    // Add smooth scrolling for internal links
+    document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href').substring(1);
+        var targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 60,
+            behavior: 'smooth'
+          });
+          
+          // Update URL hash without jumping
+          history.pushState(null, null, '#' + targetId);
+          
+          // Highlight the target element briefly
+          targetElement.classList.add('highlight-target');
+          setTimeout(function() {
+            targetElement.classList.remove('highlight-target');
+          }, 2000);
+        }
+      });
+    });
+    
+    // Highlight MATLAB to Python conversion sections
+    document.querySelectorAll('span[style*="background-color: rgba(91, 57, 243, 0.2)"]').forEach(function(el) {
+      var parent = el.parentNode;
+      if (parent.tagName === 'P' || parent.tagName === 'DIV' || parent.tagName === 'LI') {
+        parent.classList.add('matlab-to-python');
+      } else {
+        var wrapper = document.createElement('span');
+        wrapper.className = 'matlab-to-python-inline';
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+      }
+    });
+    
+    // Add syntax highlighting for code blocks
+    document.querySelectorAll('pre code').forEach(function(block) {
+      if (typeof hljs !== 'undefined') {
+        hljs.highlightBlock(block);
+      }
+    });
+    
+    // Add collapsible sections for long content
+    document.querySelectorAll('.function-documentation > div > h2').forEach(function(header) {
+      if (header.nextElementSibling && 
+          (header.nextElementSibling.classList.contains('notes-content') || 
+           header.nextElementSibling.classList.contains('references-content'))) {
+        header.style.cursor = 'pointer';
+        header.classList.add('collapsible');
+        
+        header.addEventListener('click', function() {
+          var content = this.nextElementSibling;
+          if (content.style.display === 'none') {
+            content.style.display = '';
+            this.classList.remove('collapsed');
+          } else {
+            content.style.display = 'none';
+            this.classList.add('collapsed');
+          }
+        });
+      }
+    });
+    
+    // Add table of contents for the function documentation
+    var tocContainer = document.createElement('div');
+    tocContainer.className = 'function-toc';
+    tocContainer.innerHTML = '<h3>On this page</h3><ul class="toc-list"></ul>';
+    
+    var tocList = tocContainer.querySelector('.toc-list');
+    
+    // Add entries for each section
+    document.querySelectorAll('.function-documentation > div > h2').forEach(function(header) {
+      var sectionId = header.id || header.textContent.toLowerCase().replace(/\s+/g, '-');
+      if (!header.id) {
+        header.id = sectionId;
+      }
+      
+      var tocItem = document.createElement('li');
+      tocItem.innerHTML = '<a href="#' + sectionId + '">' + header.textContent + '</a>';
+      tocList.appendChild(tocItem);
+    });
+    
+    // Insert TOC at the top of the page
+    var functionDocumentation = document.querySelector('.function-documentation');
+    functionDocumentation.insertBefore(tocContainer, functionDocumentation.querySelector('.function-signature-block'));
+    
+    // Add function navigation tracking
+    var lastVisitedFunctions = sessionStorage.getItem('lastVisitedFunctions');
+    var currentFunction = document.querySelector('.function-name').textContent;
+    
+    if (lastVisitedFunctions) {
+      lastVisitedFunctions = JSON.parse(lastVisitedFunctions);
+      
+      // Add current function if not already in the list
+      if (!lastVisitedFunctions.includes(currentFunction)) {
+        lastVisitedFunctions.unshift(currentFunction);
+        // Keep only the last 10 functions
+        if (lastVisitedFunctions.length > 10) {
+          lastVisitedFunctions = lastVisitedFunctions.slice(0, 10);
+        }
+        sessionStorage.setItem('lastVisitedFunctions', JSON.stringify(lastVisitedFunctions));
+      }
+    } else {
+      // Initialize with current function
+      sessionStorage.setItem('lastVisitedFunctions', JSON.stringify([currentFunction]));
+    }
+  });
+</script>
+{% endblock %}

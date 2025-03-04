@@ -1,0 +1,1219 @@
+{# MFE Toolbox Documentation - Python Class Template #}
+{# This template extends the page template to provide specialized structure for Python class documentation #}
+
+{% extends "page.html" %}
+
+{# Add custom CSS classes to the body for class-specific styling #}
+{% block body_tag %}
+<body class="mfe-docs python-docs class-template" data-spy="scroll" data-target=".contents-sidebar">
+{% endblock %}
+
+{# Customize the class documentation content #}
+{% block body %}
+<div class="class-documentation">
+  {# Class header with import information #}
+  <div class="class-header">
+    <h1 class="class-title">
+      <span class="class-name">{{ class_name }}</span>
+      {% if class_bases %}
+      <span class="class-bases">({{ class_bases|join(', ') }})</span>
+      {% endif %}
+    </h1>
+    
+    {# Class import example #}
+    <div class="class-import-example">
+      <div class="import-title">Import this class:</div>
+      <div class="highlight-python">
+        <div class="highlight">
+          <pre><code class="python">from {{ module }} import {{ class_name }}</code></pre>
+        </div>
+      </div>
+    </div>
+    
+    {# Class summary #}
+    <div class="class-summary">
+      {{ summary }}
+    </div>
+  </div>
+  
+  {# Class inheritance diagram #}
+  {% if inheritance_diagram %}
+  <div class="inheritance-diagram">
+    <h2>Inheritance Diagram</h2>
+    <div class="diagram-container">
+      <div class="mermaid">
+        classDiagram
+          {% for relation in inheritance_diagram.relations %}
+          {{ relation.parent }} <|-- {{ relation.child }}
+          {% endfor %}
+          
+          {% for class in inheritance_diagram.classes %}
+          class {{ class.name }} {
+            {% for method in class.methods %}
+            {{ method }}
+            {% endfor %}
+          }
+          {% endfor %}
+          
+          {% if inheritance_diagram.current_class %}
+          class {{ inheritance_diagram.current_class }} {
+            <<current>>
+          }
+          {% endif %}
+      </div>
+    </div>
+    <div class="diagram-legend">
+      <div class="legend-item">
+        <span class="legend-marker current"></span>
+        <span class="legend-text">Current class</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker parent"></span>
+        <span class="legend-text">Parent class</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker child"></span>
+        <span class="legend-text">Child class</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  
+  {# Constructor parameters #}
+  {% if constructor_params %}
+  <div class="constructor-section">
+    <h2>Constructor Parameters</h2>
+    <div class="constructor-signature">
+      <code class="python">{{ class_name }}({{ constructor_signature }})</code>
+    </div>
+    <div class="constructor-description">
+      {{ constructor_description }}
+    </div>
+    <div class="constructor-parameters">
+      <table class="parameters-table">
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Type</th>
+            <th>Default</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for param in constructor_params %}
+          <tr>
+            <td class="param-name">{{ param.name }}</td>
+            <td class="param-type">{{ param.type }}</td>
+            <td class="param-default">{% if param.default %}{{ param.default }}{% else %}<em>required</em>{% endif %}</td>
+            <td class="param-description">{{ param.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+  
+  {# Class attributes #}
+  {% if attributes %}
+  <div class="attributes-section">
+    <h2>Attributes</h2>
+    <div class="attributes-list">
+      <table class="attributes-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for attr in attributes %}
+          <tr>
+            <td class="attr-name">{{ attr.name }}</td>
+            <td class="attr-type">{{ attr.type }}</td>
+            <td class="attr-description">{{ attr.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+  
+  {# Methods overview #}
+  <div class="methods-overview">
+    <h2>Methods Overview</h2>
+    
+    {# Public methods #}
+    {% if public_methods %}
+    <div class="method-category">
+      <h3 class="category-title">Public Methods</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for method in public_methods %}
+            <tr>
+              <td class="method-signature">
+                <a href="#{{ method.id }}" class="method-link">
+                  <code class="python">{{ method.name }}({{ method.signature }})</code>
+                </a>
+              </td>
+              <td class="method-summary">{{ method.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Protected methods #}
+    {% if protected_methods %}
+    <div class="method-category">
+      <h3 class="category-title">Protected Methods</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for method in protected_methods %}
+            <tr>
+              <td class="method-signature">
+                <a href="#{{ method.id }}" class="method-link">
+                  <code class="python">{{ method.name }}({{ method.signature }})</code>
+                </a>
+              </td>
+              <td class="method-summary">{{ method.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Private methods #}
+    {% if private_methods %}
+    <div class="method-category">
+      <h3 class="category-title">Private Methods</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for method in private_methods %}
+            <tr>
+              <td class="method-signature">
+                <a href="#{{ method.id }}" class="method-link">
+                  <code class="python">{{ method.name }}({{ method.signature }})</code>
+                </a>
+              </td>
+              <td class="method-summary">{{ method.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Static methods #}
+    {% if static_methods %}
+    <div class="method-category">
+      <h3 class="category-title">Static Methods</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for method in static_methods %}
+            <tr>
+              <td class="method-signature">
+                <a href="#{{ method.id }}" class="method-link">
+                  <code class="python">{{ method.name }}({{ method.signature }})</code>
+                </a>
+              </td>
+              <td class="method-summary">{{ method.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Class methods #}
+    {% if class_methods %}
+    <div class="method-category">
+      <h3 class="category-title">Class Methods</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for method in class_methods %}
+            <tr>
+              <td class="method-signature">
+                <a href="#{{ method.id }}" class="method-link">
+                  <code class="python">{{ method.name }}({{ method.signature }})</code>
+                </a>
+              </td>
+              <td class="method-summary">{{ method.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    
+    {# Property methods #}
+    {% if properties %}
+    <div class="method-category">
+      <h3 class="category-title">Properties</h3>
+      <div class="method-list">
+        <table class="methods-table">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for prop in properties %}
+            <tr>
+              <td class="property-name">
+                <a href="#{{ prop.id }}" class="property-link">
+                  <code class="python">{{ prop.name }}</code>
+                </a>
+              </td>
+              <td class="property-type">{{ prop.type }}</td>
+              <td class="property-summary">{{ prop.summary }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  
+  {# Method details #}
+  <div class="method-details">
+    <h2>Method Details</h2>
+    
+    {# Constructor detail #}
+    {% if constructor %}
+    <div class="method-detail" id="{{ constructor.id }}">
+      <div class="method-header">
+        <h3 class="method-name">
+          <code class="python">__init__({{ constructor.signature }})</code>
+        </h3>
+        {% if constructor.decorator %}
+        <div class="method-decorator">{{ constructor.decorator }}</div>
+        {% endif %}
+      </div>
+      
+      <div class="method-description">
+        {{ constructor.description }}
+      </div>
+      
+      {% if constructor.parameters %}
+      <div class="method-parameters">
+        <h4>Parameters</h4>
+        <table class="parameters-table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for param in constructor.parameters %}
+            <tr>
+              <td class="param-name">{{ param.name }}</td>
+              <td class="param-type">{{ param.type }}</td>
+              <td class="param-default">{% if param.default %}{{ param.default }}{% else %}<em>required</em>{% endif %}</td>
+              <td class="param-description">{{ param.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      
+      {% if constructor.examples %}
+      <div class="method-examples">
+        <h4>Examples</h4>
+        {% for example in constructor.examples %}
+        <div class="example-content">
+          {{ example }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+    
+    {# All methods details #}
+    {% for method in all_methods %}
+    <div class="method-detail" id="{{ method.id }}">
+      <div class="method-header">
+        <h3 class="method-name">
+          <code class="python">{{ method.name }}({{ method.signature }})</code>
+        </h3>
+        {% if method.decorator %}
+        <div class="method-decorator">{{ method.decorator }}</div>
+        {% endif %}
+      </div>
+      
+      <div class="method-description">
+        {{ method.description }}
+      </div>
+      
+      {% if method.parameters %}
+      <div class="method-parameters">
+        <h4>Parameters</h4>
+        <table class="parameters-table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for param in method.parameters %}
+            <tr>
+              <td class="param-name">{{ param.name }}</td>
+              <td class="param-type">{{ param.type }}</td>
+              <td class="param-default">{% if param.default %}{{ param.default }}{% else %}<em>required</em>{% endif %}</td>
+              <td class="param-description">{{ param.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      
+      {% if method.returns %}
+      <div class="method-returns">
+        <h4>Returns</h4>
+        <table class="returns-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="returns-type">{{ method.returns.type }}</td>
+              <td class="returns-description">{{ method.returns.description }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      
+      {% if method.raises %}
+      <div class="method-raises">
+        <h4>Raises</h4>
+        <table class="raises-table">
+          <thead>
+            <tr>
+              <th>Exception</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for exception in method.raises %}
+            <tr>
+              <td class="exception-type">{{ exception.type }}</td>
+              <td class="exception-description">{{ exception.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      
+      {% if method.examples %}
+      <div class="method-examples">
+        <h4>Examples</h4>
+        {% for example in method.examples %}
+        <div class="example-content">
+          {{ example }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      {% if method.notes %}
+      <div class="method-notes">
+        <h4>Notes</h4>
+        <div class="notes-content">
+          {{ method.notes }}
+        </div>
+      </div>
+      {% endif %}
+      
+      {% if method.references %}
+      <div class="method-references">
+        <h4>References</h4>
+        <div class="references-content">
+          {{ method.references }}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    
+    {# Property details #}
+    {% for prop in properties %}
+    <div class="property-detail" id="{{ prop.id }}">
+      <div class="property-header">
+        <h3 class="property-name">
+          <code class="python">{{ prop.name }}</code>
+        </h3>
+        <div class="property-type">{{ prop.type }}</div>
+      </div>
+      
+      <div class="property-description">
+        {{ prop.description }}
+      </div>
+      
+      {% if prop.examples %}
+      <div class="property-examples">
+        <h4>Examples</h4>
+        {% for example in prop.examples %}
+        <div class="example-content">
+          {{ example }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  
+  {# Usage examples #}
+  {% if examples %}
+  <div class="class-examples">
+    <h2>Usage Examples</h2>
+    {% for example in examples %}
+    <div class="example-section">
+      <h3 class="example-title">{{ example.title }}</h3>
+      <div class="example-description">
+        {{ example.description }}
+      </div>
+      <div class="example-code">
+        {{ example.code }}
+      </div>
+      {% if example.output %}
+      <div class="example-output">
+        <h4>Output</h4>
+        <div class="output-content">
+          {{ example.output }}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {# See also section #}
+  {% if see_also %}
+  <div class="see-also">
+    <h2>See Also</h2>
+    <ul class="see-also-list">
+      {% for item in see_also %}
+      <li class="see-also-item">
+        <a href="{{ item.link }}" class="see-also-link">
+          <span class="see-also-name">{{ item.name }}</span>
+        </a>
+        {% if item.summary %}
+        <span class="see-also-summary">: {{ item.summary }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  
+  {# Implementation notes for developers #}
+  {% if implementation_notes %}
+  <div class="implementation-notes">
+    <h2>Implementation Notes</h2>
+    <div class="notes-content">
+      {{ implementation_notes }}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{# Add custom styling for Python class documentation #}
+{% block extrahead %}
+{{ super() }}
+<style type="text/css">
+  /* Class documentation styling */
+  .class-documentation {
+    margin-bottom: 3rem;
+  }
+  
+  /* Class header */
+  .class-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e1e4e8;
+  }
+  
+  .class-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  
+  .class-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #008b8b;
+    font-size: 2rem;
+  }
+  
+  .class-bases {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 1rem;
+    margin-left: 0.5rem;
+  }
+  
+  /* Import examples */
+  .class-import-example {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+  }
+  
+  .import-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+  
+  /* Class summary */
+  .class-summary {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+  }
+  
+  /* Inheritance diagram */
+  .inheritance-diagram {
+    margin: 2rem 0;
+  }
+  
+  .diagram-container {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  .diagram-legend {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+  }
+  
+  .legend-marker {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.3rem;
+    border-radius: 3px;
+  }
+  
+  .legend-marker.current {
+    background-color: #4287f5;
+  }
+  
+  .legend-marker.parent {
+    background-color: #f9f9f9;
+    border: 1px solid #333;
+  }
+  
+  .legend-marker.child {
+    background-color: #e1f5fe;
+    border: 1px solid #333;
+  }
+  
+  /* Constructor section */
+  .constructor-section {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f1f8fa;
+    border-radius: 4px;
+    border-left: 4px solid #008b8b;
+  }
+  
+  .constructor-signature {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 3px;
+    overflow-x: auto;
+  }
+  
+  .constructor-description {
+    margin-bottom: 1rem;
+  }
+  
+  /* Attributes section */
+  .attributes-section {
+    margin: 2rem 0;
+  }
+  
+  /* Methods overview */
+  .methods-overview {
+    margin: 2rem 0;
+  }
+  
+  .method-category {
+    margin: 1.5rem 0;
+  }
+  
+  .category-title {
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Tables styling */
+  .parameters-table,
+  .attributes-table,
+  .methods-table,
+  .returns-table,
+  .raises-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  
+  .parameters-table th,
+  .attributes-table th,
+  .methods-table th,
+  .returns-table th,
+  .raises-table th {
+    background-color: #f6f8fa;
+    padding: 0.5rem;
+    text-align: left;
+    border: 1px solid #e1e4e8;
+    font-weight: bold;
+  }
+  
+  .parameters-table td,
+  .attributes-table td,
+  .methods-table td,
+  .returns-table td,
+  .raises-table td {
+    padding: 0.5rem;
+    border: 1px solid #e1e4e8;
+    vertical-align: top;
+  }
+  
+  .param-name,
+  .attr-name,
+  .property-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+  }
+  
+  .param-type,
+  .attr-type,
+  .property-type,
+  .returns-type,
+  .exception-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+  }
+  
+  .param-default {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-style: italic;
+  }
+  
+  /* Method details */
+  .method-details {
+    margin: 2rem 0;
+  }
+  
+  .method-detail {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #7c4dff;
+  }
+  
+  .method-header {
+    margin-bottom: 1rem;
+  }
+  
+  .method-name {
+    margin-bottom: 0.5rem;
+  }
+  
+  .method-decorator {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #ff5722;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  
+  .method-description {
+    margin-bottom: 1rem;
+  }
+  
+  /* Property details */
+  .property-detail {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #ff9800;
+  }
+  
+  .property-header {
+    margin-bottom: 1rem;
+  }
+  
+  .property-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Examples */
+  .class-examples {
+    margin: 2rem 0;
+  }
+  
+  .example-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .example-title {
+    margin-top: 0;
+    border-bottom: 1px solid #e1e4e8;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .example-description {
+    margin-bottom: 1rem;
+  }
+  
+  .example-code {
+    margin: 1rem 0;
+  }
+  
+  .example-output {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  /* See also section */
+  .see-also {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+  
+  .see-also-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .see-also-item {
+    margin: 0.5rem 0;
+  }
+  
+  .see-also-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+  }
+  
+  /* Implementation notes */
+  .implementation-notes {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #9e9e9e;
+  }
+  
+  /* Numba JIT decorator highlighting */
+  .method-decorator:contains("jit") {
+    color: #ff5722 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Python-specific styling */
+  code.python {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    background-color: #f6f8fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9rem;
+  }
+  
+  /* Highlight target element when scrolled to */
+  .highlight-target {
+    animation: highlight-fade 2s ease-in-out;
+  }
+  
+  @keyframes highlight-fade {
+    0% { background-color: rgba(255, 255, 0, 0.3); }
+    100% { background-color: transparent; }
+  }
+  
+  /* MATLAB to Python conversion highlighting */
+  .matlab-to-python {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-left: 3px solid #5b39f3;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+  
+  .matlab-to-python::before {
+    content: "MATLAB → Python";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #5b39f3;
+    font-size: 0.9rem;
+  }
+  
+  .matlab-to-python-inline {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-bottom: 1px dotted #5b39f3;
+    padding: 0 0.2em;
+    color: #5b39f3;
+  }
+  
+  /* Responsive design */
+  @media screen and (max-width: 992px) {
+    .class-title {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .class-bases {
+      margin-left: 0;
+      margin-top: 0.3rem;
+    }
+    
+    .diagram-legend {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+  
+  @media screen and (max-width: 768px) {
+    .parameters-table,
+    .attributes-table,
+    .methods-table,
+    .returns-table,
+    .raises-table {
+      display: block;
+      overflow-x: auto;
+    }
+    
+    .constructor-signature {
+      overflow-x: auto;
+    }
+  }
+  
+  /* Print styling */
+  @media print {
+    .class-documentation {
+      font-size: 10pt;
+    }
+    
+    .method-detail,
+    .property-detail,
+    .constructor-section,
+    .example-section {
+      page-break-inside: avoid;
+      border-left: 1px solid #ccc !important;
+    }
+    
+    .diagram-container {
+      display: none;
+    }
+    
+    code.python {
+      background-color: transparent !important;
+      padding: 0 !important;
+    }
+    
+    .parameters-table th,
+    .attributes-table th,
+    .methods-table th,
+    .returns-table th,
+    .raises-table th {
+      background-color: transparent !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{# Add custom JavaScript for Python class documentation features #}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize mermaid diagrams for inheritance visualization
+    if (typeof mermaid !== 'undefined') {
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'neutral',
+        securityLevel: 'loose',
+        classDiagram: {
+          useMaxWidth: true,
+          wrap: true
+        }
+      });
+    }
+    
+    // Add copy buttons to import examples
+    document.querySelectorAll('.class-import-example pre').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-button';
+      button.textContent = 'Copy';
+      button.addEventListener('click', function() {
+        var code = block.textContent;
+        navigator.clipboard.writeText(code).then(function() {
+          button.textContent = 'Copied!';
+          setTimeout(function() {
+            button.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+      
+      var buttonContainer = document.createElement('div');
+      buttonContainer.className = 'copy-button-container';
+      buttonContainer.appendChild(button);
+      
+      block.parentNode.insertBefore(buttonContainer, block);
+    });
+    
+    // Add copy buttons to example code blocks
+    document.querySelectorAll('.example-code pre').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-button';
+      button.textContent = 'Copy';
+      button.addEventListener('click', function() {
+        var code = block.textContent;
+        navigator.clipboard.writeText(code).then(function() {
+          button.textContent = 'Copied!';
+          setTimeout(function() {
+            button.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+      
+      var buttonContainer = document.createElement('div');
+      buttonContainer.className = 'copy-button-container';
+      buttonContainer.appendChild(button);
+      
+      block.parentNode.insertBefore(buttonContainer, block);
+    });
+    
+    // Add special styling for Numba JIT decorators
+    document.querySelectorAll('code').forEach(function(el) {
+      if (el.textContent.includes('@jit') || el.textContent.includes('@njit')) {
+        el.classList.add('numba-decorator');
+      }
+    });
+    
+    // Add collapsible sections for method categories
+    document.querySelectorAll('.method-category h3').forEach(function(header) {
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', function() {
+        var content = this.nextElementSibling;
+        if (content.style.display === 'none') {
+          content.style.display = '';
+          this.classList.remove('collapsed');
+        } else {
+          content.style.display = 'none';
+          this.classList.add('collapsed');
+        }
+      });
+    });
+    
+    // Add smooth scrolling for internal links
+    document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href').substring(1);
+        var targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 60,
+            behavior: 'smooth'
+          });
+          
+          // Update URL hash without jumping
+          history.pushState(null, null, '#' + targetId);
+          
+          // Highlight the target element briefly
+          targetElement.classList.add('highlight-target');
+          setTimeout(function() {
+            targetElement.classList.remove('highlight-target');
+          }, 2000);
+        }
+      });
+    });
+    
+    // Add method navigation tracking
+    var lastVisitedMethods = sessionStorage.getItem('lastVisitedMethods');
+    
+    if (lastVisitedMethods) {
+      lastVisitedMethods = JSON.parse(lastVisitedMethods);
+    } else {
+      lastVisitedMethods = [];
+    }
+    
+    // Track method visits when clicking on method links
+    document.querySelectorAll('.method-link').forEach(function(link) {
+      link.addEventListener('click', function() {
+        var methodId = this.getAttribute('href').substring(1);
+        
+        // Add method to visited list if not already there
+        if (!lastVisitedMethods.includes(methodId)) {
+          lastVisitedMethods.unshift(methodId);
+          // Keep only the last 10 methods
+          if (lastVisitedMethods.length > 10) {
+            lastVisitedMethods = lastVisitedMethods.slice(0, 10);
+          }
+          sessionStorage.setItem('lastVisitedMethods', JSON.stringify(lastVisitedMethods));
+        }
+      });
+    });
+    
+    // Highlight MATLAB to Python conversion sections
+    document.querySelectorAll('span[style*="background-color: rgba(91, 57, 243, 0.2)"]').forEach(function(el) {
+      var parent = el.parentNode;
+      if (parent.tagName === 'P' || parent.tagName === 'DIV' || parent.tagName === 'LI') {
+        parent.classList.add('matlab-to-python');
+      } else {
+        var wrapper = document.createElement('span');
+        wrapper.className = 'matlab-to-python-inline';
+        el.parentNode.insertBefore(wrapper, el);
+        wrapper.appendChild(el);
+      }
+    });
+    
+    // Add table of contents navigation for method details
+    var methodDetailsToc = document.createElement('div');
+    methodDetailsToc.className = 'method-details-toc';
+    methodDetailsToc.innerHTML = '<h3>On this page</h3><ul class="toc-list"></ul>';
+    
+    var tocList = methodDetailsToc.querySelector('.toc-list');
+    
+    // Add constructor if present
+    if (document.querySelector('#' + document.querySelector('.constructor-section h2').id)) {
+      var constructorItem = document.createElement('li');
+      constructorItem.innerHTML = '<a href="#' + document.querySelector('.constructor-section h2').id + '">Constructor</a>';
+      tocList.appendChild(constructorItem);
+    }
+    
+    // Add method categories
+    document.querySelectorAll('.method-category h3').forEach(function(header) {
+      var categoryItem = document.createElement('li');
+      categoryItem.innerHTML = '<a href="#' + header.id + '">' + header.textContent + '</a>';
+      tocList.appendChild(categoryItem);
+    });
+    
+    // Add method details
+    var methodDetailsHeader = document.querySelector('.method-details h2');
+    if (methodDetailsHeader) {
+      var methodsItem = document.createElement('li');
+      methodsItem.innerHTML = '<a href="#' + methodDetailsHeader.id + '">Method Details</a>';
+      tocList.appendChild(methodsItem);
+    }
+    
+    // Add examples if present
+    var examplesHeader = document.querySelector('.class-examples h2');
+    if (examplesHeader) {
+      var examplesItem = document.createElement('li');
+      examplesItem.innerHTML = '<a href="#' + examplesHeader.id + '">Examples</a>';
+      tocList.appendChild(examplesItem);
+    }
+    
+    // Add see also if present
+    var seeAlsoHeader = document.querySelector('.see-also h2');
+    if (seeAlsoHeader) {
+      var seeAlsoItem = document.createElement('li');
+      seeAlsoItem.innerHTML = '<a href="#' + seeAlsoHeader.id + '">See Also</a>';
+      tocList.appendChild(seeAlsoItem);
+    }
+    
+    // Insert TOC at the top of the page
+    var classDocumentation = document.querySelector('.class-documentation');
+    classDocumentation.insertBefore(methodDetailsToc, classDocumentation.querySelector('.inheritance-diagram') || classDocumentation.querySelector('.constructor-section') || classDocumentation.querySelector('.attributes-section'));
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+Now I understand how the Oxford logo is used in the About dialog. Let me provide the details for the PNG file:
+
+# mfe/ui/resources/oxford_logo.png
+```
+This is a binary PNG image file that contains the Oxford University logo.
+
+The image should:
+1. Be in PNG format with transparency support
+2. Have dimensions approximately 200x100 pixels (or larger with the same aspect ratio)
+3. Be optimized for display in PyQt6 interfaces
+4. Support high-DPI displays with clear rendering at different scaling factors
+5. Contain the official Oxford University logo with proper branding elements
+6. Have a transparent background to blend well with the dialog background
+
+The file will be loaded by the AboutDialog class using PyQt6's QPixmap and displayed
+in the About dialog of the ARMAX GUI interface.
+
+This file replaces the previous MATLAB-based OxLogo.mat file with a standard PNG format
+that can be directly loaded by PyQt6 components without requiring MATLAB-specific
+conversion routines.
+```

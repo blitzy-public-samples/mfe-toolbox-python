@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="800" viewBox="0 0 1000 800">
+  <!-- Background -->
+  <rect width="1000" height="800" fill="#f8f9fa" />
+  <text x="500" y="40" font-family="Arial" font-size="24" font-weight="bold" text-anchor="middle" fill="#333">MFE Toolbox Architecture</text>
+  <text x="500" y="70" font-family="Arial" font-size="16" text-anchor="middle" fill="#666">Python 3.12 Implementation</text>
+
+  <!-- Python Environment -->
+  <rect x="50" y="100" width="900" height="650" rx="10" ry="10" fill="#e9ecef" stroke="#adb5bd" stroke-width="2" />
+  <text x="500" y="130" font-family="Arial" font-size="18" font-weight="bold" text-anchor="middle" fill="#495057">Python Environment</text>
+
+  <!-- Core Python Libraries -->
+  <rect x="80" y="150" width="840" height="100" rx="8" ry="8" fill="#d0ebff" stroke="#4dabf7" stroke-width="2" />
+  <text x="500" y="180" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#1971c2">Core Python Scientific Libraries</text>
+  
+  <!-- NumPy -->
+  <rect x="100" y="200" width="120" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="160" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">NumPy</text>
+  
+  <!-- SciPy -->
+  <rect x="240" y="200" width="120" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="300" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">SciPy</text>
+  
+  <!-- Pandas -->
+  <rect x="380" y="200" width="120" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="440" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">Pandas</text>
+  
+  <!-- Statsmodels -->
+  <rect x="520" y="200" width="120" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="580" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">Statsmodels</text>
+  
+  <!-- Matplotlib -->
+  <rect x="660" y="200" width="120" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="720" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">Matplotlib</text>
+  
+  <!-- PyQt6 -->
+  <rect x="800" y="200" width="100" height="40" rx="5" ry="5" fill="#74c0fc" stroke="#1864ab" stroke-width="1" />
+  <text x="850" y="225" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">PyQt6</text>
+
+  <!-- Numba Acceleration Layer -->
+  <rect x="80" y="270" width="840" height="60" rx="8" ry="8" fill="#fff3bf" stroke="#fcc419" stroke-width="2" />
+  <text x="500" y="305" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#e67700">Numba Acceleration Layer (@jit decorators)</text>
+
+  <!-- MFE Toolbox Core Components -->
+  <rect x="80" y="350" width="840" height="380" rx="8" ry="8" fill="#d3f9d8" stroke="#69db7c" stroke-width="2" />
+  <text x="500" y="380" font-family="Arial" font-size="18" font-weight="bold" text-anchor="middle" fill="#2b8a3e">MFE Toolbox Components</text>
+
+  <!-- Core Module -->
+  <rect x="100" y="400" width="180" height="310" rx="5" ry="5" fill="#b2f2bb" stroke="#40c057" stroke-width="1" />
+  <text x="190" y="425" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#2b8a3e">mfe/core</text>
+  
+  <rect x="110" y="440" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="460" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">base.py</text>
+  
+  <rect x="110" y="480" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="500" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">parameters.py</text>
+  
+  <rect x="110" y="520" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="540" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">results.py</text>
+  
+  <rect x="110" y="560" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="580" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">types.py</text>
+  
+  <rect x="110" y="600" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="620" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">exceptions.py</text>
+  
+  <rect x="110" y="640" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="660" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">validation.py</text>
+  
+  <rect x="110" y="680" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="190" y="700" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">config.py</text>
+
+  <!-- Models Module -->
+  <rect x="300" y="400" width="400" height="310" rx="5" ry="5" fill="#b2f2bb" stroke="#40c057" stroke-width="1" />
+  <text x="500" y="425" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#2b8a3e">mfe/models</text>
+  
+  <!-- Models Submodules -->
+  <rect x="310" y="440" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="400" y="465" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">univariate</text>
+  
+  <rect x="310" y="490" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="400" y="515" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">multivariate</text>
+  
+  <rect x="310" y="540" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="400" y="565" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">time_series</text>
+  
+  <rect x="310" y="590" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="400" y="615" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">bootstrap</text>
+  
+  <rect x="310" y="640" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="400" y="665" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">realized</text>
+  
+  <rect x="510" y="440" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="600" y="465" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">cross_section</text>
+  
+  <rect x="510" y="490" width="180" height="40" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="600" y="515" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">distributions</text>
+  
+  <!-- Model Implementation Examples -->
+  <rect x="510" y="540" width="180" height="140" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="600" y="560" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#2b8a3e">Model Examples</text>
+  <text x="600" y="580" font-family="Arial" font-size="11" text-anchor="middle" fill="#2b8a3e">GARCH, EGARCH, TARCH</text>
+  <text x="600" y="600" font-family="Arial" font-size="11" text-anchor="middle" fill="#2b8a3e">BEKK, DCC, RARCH</text>
+  <text x="600" y="620" font-family="Arial" font-size="11" text-anchor="middle" fill="#2b8a3e">ARMA/ARMAX</text>
+  <text x="600" y="640" font-family="Arial" font-size="11" text-anchor="middle" fill="#2b8a3e">Block &amp; Stationary Bootstrap</text>
+  <text x="600" y="660" font-family="Arial" font-size="11" text-anchor="middle" fill="#2b8a3e">Realized Volatility Estimators</text>
+
+  <!-- UI Module -->
+  <rect x="720" y="400" width="180" height="150" rx="5" ry="5" fill="#b2f2bb" stroke="#40c057" stroke-width="1" />
+  <text x="810" y="425" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#2b8a3e">mfe/ui</text>
+  
+  <rect x="730" y="440" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="460" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">armax_app.py</text>
+  
+  <rect x="730" y="480" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="500" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">models/</text>
+  
+  <rect x="730" y="520" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="540" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">views/</text>
+  
+  <rect x="730" y="560" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="580" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">controllers/</text>
+
+  <!-- Utils Module -->
+  <rect x="720" y="560" width="180" height="150" rx="5" ry="5" fill="#b2f2bb" stroke="#40c057" stroke-width="1" />
+  <text x="810" y="585" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#2b8a3e">mfe/utils</text>
+  
+  <rect x="730" y="600" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="620" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">matrix_ops.py</text>
+  
+  <rect x="730" y="640" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="660" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">covariance.py</text>
+  
+  <rect x="730" y="680" width="160" height="30" rx="3" ry="3" fill="#8ce99a" stroke="#2b8a3e" stroke-width="1" />
+  <text x="810" y="700" font-family="Arial" font-size="12" text-anchor="middle" fill="#2b8a3e">data_transformations.py</text>
+
+  <!-- Arrows and Connections -->
+  <!-- NumPy to Numba -->
+  <path d="M160,240 L160,270" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- SciPy to Numba -->
+  <path d="M300,240 L300,270" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Pandas to Numba -->
+  <path d="M440,240 L440,270" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Statsmodels to Numba -->
+  <path d="M580,240 L580,270" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Numba to Core -->
+  <path d="M190,330 L190,400" stroke="#e67700" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Numba to Models -->
+  <path d="M500,330 L500,400" stroke="#e67700" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Numba to Utils -->
+  <path d="M810,330 L810,560" stroke="#e67700" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Core to Models -->
+  <path d="M280,500 L300,500" stroke="#2b8a3e" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Models to UI -->
+  <path d="M700,460 L720,460" stroke="#2b8a3e" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Utils to Models -->
+  <path d="M730,620 L700,620 L700,550 L700,500" stroke="#2b8a3e" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- PyQt6 to UI -->
+  <path d="M850,240 L850,400" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+  
+  <!-- Matplotlib to UI -->
+  <path d="M720,240 L720,400" stroke="#1864ab" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
+
+  <!-- Arrowhead Marker Definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
+    </marker>
+  </defs>
+
+  <!-- Legend -->
+  <rect x="80" y="750" width="20" height="20" fill="#d0ebff" stroke="#4dabf7" stroke-width="1" />
+  <text x="110" y="765" font-family="Arial" font-size="12" fill="#333">Python Scientific Libraries</text>
+  
+  <rect x="250" y="750" width="20" height="20" fill="#fff3bf" stroke="#fcc419" stroke-width="1" />
+  <text x="280" y="765" font-family="Arial" font-size="12" fill="#333">Numba Acceleration Layer</text>
+  
+  <rect x="450" y="750" width="20" height="20" fill="#d3f9d8" stroke="#69db7c" stroke-width="1" />
+  <text x="480" y="765" font-family="Arial" font-size="12" fill="#333">MFE Toolbox Components</text>
+  
+  <line x1="600" y1="750" x2="630" y2="750" stroke="#333" stroke-width="2" marker-end="url(#arrowhead)" />
+  <text x="640" y="765" font-family="Arial" font-size="12" fill="#333">Dependency Flow</text>
+</svg>

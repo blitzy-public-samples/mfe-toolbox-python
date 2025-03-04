@@ -1,0 +1,316 @@
+{# MFE Toolbox Documentation - Main Layout Template #}
+{# This template extends the base theme to provide consistent structure for all documentation pages #}
+
+{% extends "!layout.html" %}
+
+{# Add extra meta tags #}
+{% block extrahead %}
+  {{ super() }}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MFE Toolbox - Python-based Financial Econometrics Toolbox">
+  <meta name="keywords" content="Python, econometrics, financial, time series, volatility, GARCH, ARMA, bootstrap, statistics">
+  <meta name="author" content="{{ author }}">
+  
+  {# Open Graph meta tags for better social media sharing #}
+  <meta property="og:title" content="{% if title %}{{ title }} - {% endif %}{{ project }}">
+  <meta property="og:description" content="MFE Toolbox - Python-based Financial Econometrics Toolbox">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ pathto('_static/logo.png', 1) }}">
+  
+  {# Preload critical resources #}
+  <link rel="preload" href="{{ pathto('_static/css/custom.css', 1) }}" as="style">
+  <link rel="preload" href="{{ pathto('_static/js/mfe-docs.js', 1) }}" as="script">
+  
+  {# Favicon #}
+  <link rel="icon" type="image/png" href="{{ pathto('_static/favicon.ico', 1) }}">
+{% endblock %}
+
+{# Custom navigation header #}
+{% block sidebartitle %}
+<a href="{{ pathto(master_doc) }}" class="icon icon-home">
+  <img src="{{ pathto('_static/logo.png', 1) }}" class="logo" alt="Logo" />
+  <span>{{ project }}</span>
+</a>
+
+<div class="version-container">
+  <div class="version-info">
+    <span class="version-text">v{{ version }}</span>
+    <div class="version-dropdown">
+      <select id="version-switcher" aria-label="Version switcher">
+        <option value="{{ version }}" selected>{{ version }} (current)</option>
+        <option value="dev">dev</option>
+        <option value="3.0">3.0</option>
+        <option value="2.0">2.0</option>
+        <option value="1.0">1.0</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+{% include "searchbox.html" %}
+{% endblock %}
+
+{# Add custom body classes #}
+{% block body_tag %}
+<body class="mfe-docs python-docs" data-spy="scroll" data-target=".wy-nav-side">
+{% endblock %}
+
+{# Add custom footer content #}
+{% block footer %}
+{{ super() }}
+<div class="footer-extra">
+  <div class="footer-info">
+    <p>
+      <strong>MFE Toolbox</strong> - Python-based Financial Econometrics Toolbox
+      <br>
+      <span class="copyright">{{ copyright }}</span>
+    </p>
+    <p class="python-powered">
+      <a href="https://www.python.org/" target="_blank" rel="noopener noreferrer">
+        <img src="{{ pathto('_static/python-powered.png', 1) }}" alt="Python Powered" width="88" height="31">
+      </a>
+    </p>
+  </div>
+  <div class="footer-links">
+    <ul>
+      <li><a href="https://github.com/bashtage/arch" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+      <li><a href="https://pypi.org/project/mfe-toolbox/" target="_blank" rel="noopener noreferrer">PyPI</a></li>
+      <li><a href="https://github.com/bashtage/arch/issues" target="_blank" rel="noopener noreferrer">Issues</a></li>
+      <li><a href="{{ pathto('genindex') }}">Index</a></li>
+      <li><a href="{{ pathto('py-modindex') }}">Module Index</a></li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{# Add custom JavaScript at the end of the document #}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+  // Version switcher functionality
+  document.getElementById('version-switcher').addEventListener('change', function() {
+    var version = this.value;
+    var currentPath = window.location.pathname;
+    var basePath = currentPath.split('/').slice(0, -2).join('/');
+    if (version === 'dev') {
+      window.location.href = basePath + '/dev/' + currentPath.split('/').slice(-1)[0];
+    } else {
+      window.location.href = basePath + '/' + version + '/' + currentPath.split('/').slice(-1)[0];
+    }
+  });
+  
+  // Add copy buttons to code blocks if not already added by sphinx-copybutton
+  if (typeof addCopyButtonsToCodeCells === 'function') {
+    addCopyButtonsToCodeCells();
+  }
+  
+  // Highlight Python-specific content
+  document.querySelectorAll('.highlight-python').forEach(function(el) {
+    el.classList.add('python-code');
+  });
+  
+  // Add special styling for Numba JIT decorators
+  document.querySelectorAll('code .nd:contains("jit")').forEach(function(el) {
+    el.classList.add('numba-decorator');
+  });
+  
+  // Initialize mermaid diagrams if present
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  }
+  
+  // Add responsive behavior for tables
+  document.querySelectorAll('table.docutils').forEach(function(table) {
+    var wrapper = document.createElement('div');
+    wrapper.className = 'table-responsive';
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+  
+  // Add class to highlight MATLAB to Python conversion sections
+  document.querySelectorAll('span[style*="background-color: rgba(91, 57, 243, 0.2)"]').forEach(function(el) {
+    var parent = el.parentNode;
+    if (parent.tagName === 'P' || parent.tagName === 'DIV' || parent.tagName === 'LI') {
+      parent.classList.add('matlab-to-python');
+    } else {
+      var wrapper = document.createElement('span');
+      wrapper.className = 'matlab-to-python-inline';
+      el.parentNode.insertBefore(wrapper, el);
+      wrapper.appendChild(el);
+    }
+  });
+</script>
+
+{# Load MathJax with custom configuration #}
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [['$','$'], ['\\(','\\)']],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      equationNumbers: { autoNumber: "AMS" },
+      extensions: ["AMSmath.js", "AMSsymbols.js"]
+    }
+  });
+</script>
+
+{# Add custom styles for Python-specific elements #}
+<style type="text/css">
+  /* Python module styling */
+  .py-mod { 
+    font-weight: bold;
+    color: #2980B9;
+  }
+  
+  /* Python class styling */
+  .py-class {
+    font-weight: bold;
+    color: #008b8b;
+  }
+  
+  /* Python function styling */
+  .py-func {
+    font-weight: bold;
+    color: #7c4dff;
+  }
+  
+  /* Numba decorator highlight */
+  .numba-decorator {
+    color: #ff5722 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Version switcher styling */
+  .version-container {
+    margin: 1em 0;
+    text-align: center;
+  }
+  
+  .version-info {
+    display: inline-block;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 0.3em 0.6em;
+  }
+  
+  .version-text {
+    font-weight: bold;
+    margin-right: 0.5em;
+  }
+  
+  #version-switcher {
+    background-color: transparent;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 0.2em 0.5em;
+    font-size: 0.9em;
+  }
+  
+  /* Footer customizations */
+  .footer-extra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid #e1e4e8;
+  }
+  
+  .footer-info {
+    flex: 1;
+    min-width: 250px;
+  }
+  
+  .footer-links {
+    flex: 1;
+    min-width: 250px;
+    text-align: right;
+  }
+  
+  .footer-links ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .footer-links li {
+    display: inline-block;
+    margin-left: 1em;
+  }
+  
+  .python-powered {
+    margin-top: 1em;
+  }
+  
+  /* Responsive table container */
+  .table-responsive {
+    overflow-x: auto;
+    margin-bottom: 1em;
+  }
+  
+  /* MATLAB to Python conversion highlighting */
+  .matlab-to-python {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-left: 3px solid #5b39f3;
+    padding: 0.5em 1em;
+    margin: 1em 0;
+    position: relative;
+  }
+  
+  .matlab-to-python::before {
+    content: "MATLAB → Python";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    color: #5b39f3;
+  }
+  
+  .matlab-to-python-inline {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-bottom: 1px dotted #5b39f3;
+    padding: 0 0.2em;
+    color: #5b39f3;
+  }
+  
+  /* Improve mobile responsiveness */
+  @media screen and (max-width: 768px) {
+    .wy-nav-top {
+      display: block;
+    }
+    
+    .wy-nav-side {
+      left: -300px;
+    }
+    
+    .wy-nav-content-wrap {
+      margin-left: 0;
+    }
+    
+    .wy-nav-content {
+      padding: 1em;
+    }
+    
+    .footer-links {
+      text-align: left;
+      margin-top: 1em;
+    }
+    
+    .footer-links li {
+      margin-left: 0;
+      margin-right: 1em;
+    }
+  }
+</style>
+{% endblock %}

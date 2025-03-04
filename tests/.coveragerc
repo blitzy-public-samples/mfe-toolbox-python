@@ -1,0 +1,87 @@
+[run]
+# Define source packages to measure
+source = mfe
+
+# Include branch coverage to measure conditional statements
+branch = True
+
+# Enable parallel mode for multi-process testing
+parallel = True
+
+# Define paths to omit from coverage measurement
+omit =
+    # Exclude test files
+    */tests/*
+    # Exclude setup files
+    */setup.py
+    # Exclude documentation files
+    */docs/*
+    # Exclude version file
+    */mfe/version.py
+    # Exclude __init__.py files as they mostly contain imports
+    */__init__.py
+    # Exclude UI resources
+    */mfe/ui/resources/*
+
+# Define plugins
+plugins =
+    coverage_conditional_plugin
+
+[report]
+# Exclude lines from coverage report
+exclude_lines =
+    # Skip any pragma comments
+    pragma: no cover
+    
+    # Skip defensive assertion code
+    raise NotImplementedError
+    
+    # Skip abstract methods
+    @abstractmethod
+    
+    # Skip debug-only code
+    def __repr__
+    if self\.debug
+    
+    # Skip exception handling branches that can't be tested easily
+    except ImportError
+    except AttributeError
+    
+    # Skip type checking blocks
+    if TYPE_CHECKING:
+    
+    # Skip pass statements
+    pass
+
+# Show missing line numbers in report
+show_missing = True
+
+# Set precision for coverage percentage
+precision = 2
+
+# Skip empty files
+skip_empty = True
+
+# Set minimum coverage percentage for success
+fail_under = 80
+
+[html]
+# Directory for HTML report output
+directory = coverage_html_report
+
+# Title for HTML report
+title = MFE Toolbox Coverage Report
+
+[xml]
+# Output file for XML report (for CI/CD integration)
+output = coverage.xml
+
+[json]
+# Output file for JSON report
+output = coverage.json
+
+[paths]
+# Handle path aliases for accurate coverage measurement
+source =
+    mfe/
+    */site-packages/mfe/

@@ -1,0 +1,20 @@
+Based on my research, I now understand that the `dialog_icon_info.png` file is an information icon used in various UI dialogs within the MFE Toolbox. It's part of a set of standard dialog icons (info, warning, error, question) that are loaded from the resources directory and used in PyQt6 interfaces.
+
+Since I can't directly create a binary PNG file in this text interface, I'll provide instructions on what this file should contain and how it should be created:
+
+# mfe/ui/resources/dialog_icon_info.png
+```
+This file should be a standard information icon in PNG format with the following specifications:
+
+1. Size: 32x32 pixels (with support for high-DPI displays)
+2. Format: PNG with transparency (alpha channel)
+3. Color: Blue information symbol (typically an "i" in a circle)
+4. Style: Modern, flat design consistent with PyQt6 UI guidelines
+5. Optimization: Optimized for display in PyQt6 interfaces
+
+The icon should be a standard information icon similar to those used in modern UI frameworks, featuring a lowercase "i" in a blue circle with a white background. The design should be clean and professional, suitable for use in dialog boxes and message notifications.
+
+This file replaces the MATLAB-based icon previously stored in dialogicons.mat and is loaded by PyQt6 components through the resource_loader.py module.
+```
+
+This file is part of a set of standard dialog icons used in the MFE Toolbox UI, and it's specifically used for information dialogs. The icon should follow standard UI conventions for information icons (typically a blue "i" in a circle) and be optimized for display in PyQt6 interfaces with support for high-DPI displays.

@@ -1,0 +1,550 @@
+{# MFE Toolbox Documentation - Standard Page Template #}
+{# This template extends the main layout to provide structure for regular documentation pages #}
+
+{% extends "layout.html" %}
+
+{# Add custom CSS classes to the body for page-specific styling #}
+{% block body_tag %}
+<body class="mfe-docs python-docs page-template" data-spy="scroll" data-target=".contents-sidebar">
+{% endblock %}
+
+{# Customize the page header area #}
+{% block content %}
+<div class="document-wrapper">
+  {# Page header with breadcrumbs and page tools #}
+  <div class="page-header">
+    <div class="breadcrumbs-container">
+      {% include "breadcrumbs.html" %}
+    </div>
+    <div class="page-tools">
+      <a href="https://github.com/bashtage/arch/edit/main/docs/{{ pagename }}.rst" class="tool-link" title="Edit on GitHub">
+        <i class="fa fa-pencil"></i> Edit
+      </a>
+      <a href="javascript:window.print()" class="tool-link" title="Print this page">
+        <i class="fa fa-print"></i> Print
+      </a>
+    </div>
+  </div>
+
+  {# Main content area with sidebar #}
+  <div class="document-container">
+    {# Table of contents sidebar #}
+    <div class="contents-sidebar">
+      <div class="sidebar-header">
+        <h3>Page Contents</h3>
+      </div>
+      <div class="sidebar-body">
+        {{ toc }}
+      </div>
+    </div>
+
+    {# Main document content #}
+    <div class="document-content">
+      {% block body %}
+      {{ super() }}
+      {% endblock %}
+      
+      {# Add navigation links to previous/next pages #}
+      <div class="page-navigation">
+        <div class="nav-previous">
+          {% if prev %}
+          <a href="{{ prev.link|e }}" title="{{ prev.title|e }}">
+            <i class="fa fa-arrow-left"></i> Previous: {{ prev.title|e }}
+          </a>
+          {% endif %}
+        </div>
+        <div class="nav-next">
+          {% if next %}
+          <a href="{{ next.link|e }}" title="{{ next.title|e }}">
+            Next: {{ next.title|e }} <i class="fa fa-arrow-right"></i>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{# Add custom styling for Python documentation elements #}
+{% block extrahead %}
+{{ super() }}
+<style type="text/css">
+  /* Page layout */
+  .document-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .document-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+  }
+  
+  .document-content {
+    flex: 1;
+    min-width: 0;
+    padding: 0 1.5rem;
+  }
+  
+  /* Page header styling */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1.5rem;
+    border-bottom: 1px solid #e1e4e8;
+    margin-bottom: 1.5rem;
+  }
+  
+  .page-tools {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .tool-link {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  
+  .tool-link:hover {
+    color: #2980B9;
+    text-decoration: underline;
+  }
+  
+  /* Table of contents sidebar */
+  .contents-sidebar {
+    width: 250px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 60px);
+    overflow-y: auto;
+    padding: 0 1rem;
+    border-right: 1px solid #e1e4e8;
+  }
+  
+  .sidebar-header {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e1e4e8;
+    margin-bottom: 0.5rem;
+  }
+  
+  .sidebar-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+  }
+  
+  /* Navigation between pages */
+  .page-navigation {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e1e4e8;
+  }
+  
+  /* Python-specific documentation styling */
+  
+  /* Module sections */
+  .py-module-section {
+    margin: 2rem 0;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-left: 4px solid #2980B9;
+    border-radius: 0 4px 4px 0;
+  }
+  
+  .py-module-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #2980B9;
+    font-size: 1.2rem;
+  }
+  
+  /* Class documentation */
+  .py-class-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background-color: #f1f8fa;
+    border-left: 4px solid #008b8b;
+    border-radius: 0 4px 4px 0;
+  }
+  
+  .py-class-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #008b8b;
+    font-size: 1.1rem;
+  }
+  
+  .py-class-bases {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-size: 0.9rem;
+    margin-left: 1rem;
+  }
+  
+  /* Function documentation */
+  .py-function-section {
+    margin: 1rem 0;
+    padding: 0.8rem;
+    background-color: #f5f5f5;
+    border-left: 4px solid #7c4dff;
+    border-radius: 0 4px 4px 0;
+  }
+  
+  .py-function-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #7c4dff;
+    font-size: 1rem;
+  }
+  
+  /* Method documentation */
+  .py-method-section {
+    margin: 0.8rem 0;
+    padding: 0.6rem;
+    background-color: #f5f5f5;
+    border-left: 3px solid #9c27b0;
+    border-radius: 0 4px 4px 0;
+    margin-left: 1rem;
+  }
+  
+  .py-method-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #9c27b0;
+    font-size: 0.95rem;
+  }
+  
+  /* Parameter documentation */
+  .py-param-section {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #e1e4e8;
+  }
+  
+  .py-param-name {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  .py-param-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #666;
+    font-style: italic;
+  }
+  
+  /* Return value documentation */
+  .py-returns-section {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    border-left: 2px solid #4caf50;
+  }
+  
+  .py-returns-type {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color: #4caf50;
+    font-style: italic;
+  }
+  
+  /* Code examples */
+  .highlight-python {
+    margin: 1rem 0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .highlight-python pre {
+    background-color: #f6f8fa;
+    border: 1px solid #e1e4e8;
+    padding: 1rem;
+    overflow-x: auto;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  /* Numba JIT decorator highlighting */
+  .highlight-python .nd:contains("jit") {
+    color: #ff5722 !important;
+    font-weight: bold;
+  }
+  
+  /* Admonitions (notes, warnings, etc.) */
+  .admonition {
+    margin: 1rem 0;
+    padding: 0.8rem;
+    border-radius: 4px;
+    border-left-width: 4px;
+    border-left-style: solid;
+  }
+  
+  .admonition.note {
+    background-color: #e8f4fd;
+    border-left-color: #2980B9;
+  }
+  
+  .admonition.warning {
+    background-color: #fff3e0;
+    border-left-color: #ff9800;
+  }
+  
+  .admonition.danger {
+    background-color: #ffebee;
+    border-left-color: #f44336;
+  }
+  
+  .admonition.tip {
+    background-color: #e8f5e9;
+    border-left-color: #4caf50;
+  }
+  
+  .admonition-title {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* API reference styling */
+  .api-reference {
+    margin: 2rem 0;
+  }
+  
+  .api-reference h2 {
+    border-bottom: 2px solid #2980B9;
+    padding-bottom: 0.3rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  /* MATLAB to Python conversion highlighting */
+  .matlab-to-python {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-left: 3px solid #5b39f3;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    position: relative;
+  }
+  
+  .matlab-to-python::before {
+    content: "MATLAB → Python";
+    display: block;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #5b39f3;
+    font-size: 0.9rem;
+  }
+  
+  .matlab-to-python-inline {
+    background-color: rgba(91, 57, 243, 0.1);
+    border-bottom: 1px dotted #5b39f3;
+    padding: 0 0.2em;
+    color: #5b39f3;
+  }
+  
+  /* Mathematical equations */
+  .math {
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  
+  /* Tables */
+  table.docutils {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    border: 1px solid #e1e4e8;
+  }
+  
+  table.docutils th {
+    background-color: #f6f8fa;
+    padding: 0.5rem;
+    text-align: left;
+    border: 1px solid #e1e4e8;
+  }
+  
+  table.docutils td {
+    padding: 0.5rem;
+    border: 1px solid #e1e4e8;
+  }
+  
+  /* Responsive design */
+  @media screen and (max-width: 992px) {
+    .document-container {
+      flex-direction: column;
+    }
+    
+    .contents-sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+      border-right: none;
+      border-bottom: 1px solid #e1e4e8;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+    }
+    
+    .document-content {
+      padding: 0 1rem;
+    }
+  }
+  
+  @media screen and (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .page-tools {
+      margin-top: 0.5rem;
+    }
+    
+    .page-navigation {
+      flex-direction: column;
+      gap: 1rem;
+    }
+  }
+  
+  @media print {
+    .contents-sidebar,
+    .page-tools,
+    .page-navigation {
+      display: none;
+    }
+    
+    .document-content {
+      width: 100%;
+      padding: 0;
+    }
+    
+    a[href]:after {
+      content: " (" attr(href) ")";
+    }
+  }
+</style>
+{% endblock %}
+
+{# Add custom JavaScript for Python documentation features #}
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add copy buttons to code blocks
+    document.querySelectorAll('.highlight-python pre').forEach(function(block) {
+      var button = document.createElement('button');
+      button.className = 'copy-button';
+      button.textContent = 'Copy';
+      button.addEventListener('click', function() {
+        var code = block.textContent;
+        navigator.clipboard.writeText(code).then(function() {
+          button.textContent = 'Copied!';
+          setTimeout(function() {
+            button.textContent = 'Copy';
+          }, 2000);
+        });
+      });
+      
+      var buttonContainer = document.createElement('div');
+      buttonContainer.className = 'copy-button-container';
+      buttonContainer.appendChild(button);
+      
+      block.parentNode.insertBefore(buttonContainer, block);
+    });
+    
+    // Add special styling for Python classes, functions, and modules
+    document.querySelectorAll('.py-class').forEach(function(el) {
+      el.closest('div').classList.add('py-class-section');
+    });
+    
+    document.querySelectorAll('.py-function').forEach(function(el) {
+      el.closest('div').classList.add('py-function-section');
+    });
+    
+    document.querySelectorAll('.py-method').forEach(function(el) {
+      el.closest('div').classList.add('py-method-section');
+    });
+    
+    document.querySelectorAll('.py-mod').forEach(function(el) {
+      el.closest('div').classList.add('py-module-section');
+    });
+    
+    // Add special styling for Numba JIT decorators
+    document.querySelectorAll('code').forEach(function(el) {
+      if (el.textContent.includes('@jit') || el.textContent.includes('@njit')) {
+        el.classList.add('numba-decorator');
+      }
+    });
+    
+    // Add collapsible sections for API documentation
+    document.querySelectorAll('.api-reference h3').forEach(function(header) {
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', function() {
+        var content = this.nextElementSibling;
+        while (content && !content.matches('h3')) {
+          if (content.style.display === 'none') {
+            content.style.display = '';
+          } else {
+            content.style.display = 'none';
+          }
+          content = content.nextElementSibling;
+        }
+      });
+    });
+    
+    // Add smooth scrolling for table of contents links
+    document.querySelectorAll('.contents-sidebar a').forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href').substring(1);
+        var targetElement = document.getElementById(targetId);
+        
+        if (targetElement) {
+          window.scrollTo({
+            top: targetElement.offsetTop - 60,
+            behavior: 'smooth'
+          });
+          
+          // Update URL hash without jumping
+          history.pushState(null, null, '#' + targetId);
+        }
+      });
+    });
+    
+    // Highlight active section in table of contents
+    var sections = document.querySelectorAll('h2, h3, h4, h5, h6');
+    var tocLinks = document.querySelectorAll('.contents-sidebar a');
+    
+    function highlightToc() {
+      var scrollPosition = window.scrollY;
+      
+      // Find the current section
+      var currentSection = null;
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].offsetTop - 100 <= scrollPosition) {
+          currentSection = sections[i].id;
+        } else {
+          break;
+        }
+      }
+      
+      // Highlight the corresponding TOC link
+      if (currentSection) {
+        tocLinks.forEach(function(link) {
+          link.classList.remove('active');
+          if (link.getAttribute('href') === '#' + currentSection) {
+            link.classList.add('active');
+          }
+        });
+      }
+    }
+    
+    window.addEventListener('scroll', highlightToc);
+    highlightToc(); // Initial highlight
+  });
+</script>
+{% endblock %}

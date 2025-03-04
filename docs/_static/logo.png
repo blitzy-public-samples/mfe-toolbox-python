@@ -1,0 +1,18 @@
+Based on the information I've gathered, I understand that I need to create a logo image file for the MFE Toolbox Python project. Since this is an image file and not a code file, I'll provide a description of what the logo should be rather than generating actual code.
+
+# docs/_static/logo.png
+```
+This file should be a PNG image that serves as the logo for the MFE Toolbox Python project.
+
+The logo should:
+1. Reflect the modern Python implementation of the MFE Toolbox
+2. Use the color scheme defined in the CSS (primary blue #4287f5, secondary purple #5b39f3, accent yellow #ffd966)
+3. Be appropriately sized for web documentation (recommended dimensions around 200x200px)
+4. Include visual elements that represent both financial econometrics and Python
+5. Maintain a visual connection to the original MFE Toolbox while indicating the Python reimplementation
+6. Be in PNG format with transparency support for flexible placement in the documentation
+7. Be optimized for web display with appropriate resolution and file size
+
+The logo will be used in the documentation header (as specified in conf.py with html_logo = '_static/logo.png') 
+and as a favicon for the documentation website.
+```
