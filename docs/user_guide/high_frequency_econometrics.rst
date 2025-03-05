@@ -1,5 +1,5 @@
 # docs/user_guide/high_frequency_econometrics.rst
-
+```rst
 ============================
 High-Frequency Econometrics
 ============================
@@ -1723,3 +1723,4 @@ Key features include:
 - Integration with other MFE Toolbox components for volatility forecasting and risk management
 
 For more advanced applications, see the documentation on univariate and multivariate volatility models, time series analysis, and bootstrap methods.
+```

@@ -10,39 +10,35 @@ import datetime
 from pathlib import Path
 
 # -- Path setup --------------------------------------------------------------
-# Add the project root directory to the path so that autodoc can find the modules
-root_dir = Path(__file__).parent.parent.absolute()
-sys.path.insert(0, str(root_dir))
 
-# Import the project's version information
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute.
+sys.path.insert(0, os.path.abspath('..'))
+
+# Import the project version
 try:
-    from mfe.version import (
-        __version__, 
-        VERSION_MAJOR, 
-        VERSION_MINOR, 
-        VERSION_PATCH,
-        __author__,
-        __copyright__,
-        get_release_date
-    )
+    from mfe.version import __version__ as version
+    from mfe.version import __author__, __copyright__, __title__, __description__
 except ImportError:
-    # Fallback if version module can't be imported
-    __version__ = "4.0.0"
-    VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH = 4, 0, 0
-    __author__ = "Kevin Sheppard"
-    __copyright__ = f"Copyright (c) 2009-{datetime.datetime.now().year}, Kevin Sheppard"
-    def get_release_date(version=None):
-        return "2023-11-01"  # Placeholder date
+    # If the package is not installed, try to get version from pyproject.toml
+    import tomli
+    with open('../pyproject.toml', 'rb') as f:
+        pyproject = tomli.load(f)
+    version = pyproject['project']['version']
+    __author__ = pyproject['project']['authors'][0]['name']
+    __title__ = pyproject['project']['name']
+    __description__ = pyproject['project']['description']
+    __copyright__ = f"2023, {__author__}"
 
 # -- Project information -----------------------------------------------------
-project = 'MFE Toolbox'
+
+project = __title__
 copyright = __copyright__
 author = __author__
 
 # The full version, including alpha/beta/rc tags
-release = __version__
-# The short X.Y version
-version = f"{VERSION_MAJOR}.{VERSION_MINOR}"
+release = version
 
 # -- General configuration ---------------------------------------------------
 
@@ -54,17 +50,19 @@ extensions = [
     'sphinx.ext.viewcode',          # Add links to view source code
     'sphinx.ext.napoleon',          # Support for NumPy and Google style docstrings
     'sphinx.ext.mathjax',           # Render math via MathJax
-    'sphinx.ext.intersphinx',       # Link to other projects' documentation
-    'sphinx.ext.todo',              # Support for TODO items
-    'sphinx.ext.coverage',          # Documentation coverage checking
+    'sphinx.ext.intersphinx',       # Link to other project's documentation
+    'sphinx.ext.todo',              # Support for todo items
+    'sphinx.ext.coverage',          # Check documentation coverage
     'sphinx.ext.ifconfig',          # Conditional content based on config values
     'sphinx.ext.githubpages',       # GitHub pages support
     'sphinx_rtd_theme',             # Read the Docs theme
-    'IPython.sphinxext.ipython_console_highlighting',  # IPython highlighting
-    'IPython.sphinxext.ipython_directive',             # IPython directives
-    'matplotlib.sphinxext.plot_directive',             # Matplotlib plot directive
     'nbsphinx',                     # Jupyter notebook support
+    'IPython.sphinxext.ipython_console_highlighting',  # IPython highlighting
+    'IPython.sphinxext.ipython_directive',             # IPython directive
+    'matplotlib.sphinxext.plot_directive',             # Matplotlib plot directive
     'sphinx_copybutton',            # Add copy button to code blocks
+    'sphinx.ext.graphviz',          # Support for Graphviz graphs
+    'sphinxcontrib.mermaid',        # Support for Mermaid diagrams
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -72,6 +70,7 @@ templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
+# This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 
 # The name of the Pygments (syntax highlighting) style to use.
@@ -81,14 +80,6 @@ pygments_style = 'sphinx'
 todo_include_todos = True
 
 # -- Options for autodoc -----------------------------------------------------
-autodoc_default_options = {
-    'members': True,
-    'member-order': 'bysource',
-    'special-members': '__init__',
-    'undoc-members': True,
-    'exclude-members': '__weakref__',
-    'show-inheritance': True,
-}
 
 # Automatically extract typehints when specified and place them in
 # descriptions of the relevant function/method.
@@ -97,23 +88,21 @@ autodoc_typehints = 'description'
 # Only show class docstring and not __init__ docstring
 autoclass_content = 'class'
 
-# -- Options for napoleon ----------------------------------------------------
-napoleon_google_docstring = True
-napoleon_numpy_docstring = True
-napoleon_include_init_with_doc = False
-napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = True
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
-napoleon_use_ivar = False
-napoleon_use_param = True
-napoleon_use_rtype = True
-napoleon_preprocess_types = False
-napoleon_type_aliases = None
-napoleon_attr_annotations = True
+# Sort members by type
+autodoc_member_order = 'groupwise'
+
+# Document special methods
+autodoc_default_options = {
+    'members': True,
+    'member-order': 'bysource',
+    'special-members': '__init__, __call__',
+    'undoc-members': True,
+    'exclude-members': '__weakref__'
+}
 
 # -- Options for intersphinx -------------------------------------------------
+
+# Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
@@ -159,7 +148,6 @@ html_css_files = [
 
 # Custom JavaScript files
 html_js_files = [
-    'js/mfe-docs.js',
     'js/mermaid-init.js',
 ]
 
@@ -180,14 +168,16 @@ html_last_updated_fmt = '%b %d, %Y'
 # typographically correct entities.
 html_use_smartypants = True
 
-# If true, links to the reST sources are added to the pages.
-html_show_sourcelink = True
-
-# If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
-html_show_sphinx = True
-
-# If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
-html_show_copyright = True
+# Custom sidebar templates, maps document names to template names.
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+        'relations.html',
+        'searchbox.html',
+        'donate.html',
+    ]
+}
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
@@ -207,7 +197,7 @@ latex_elements = {
     'preamble': r'''\
         \usepackage{charter}\
         \usepackage[defaultsans]{lato}\
-        \usepackage{inconsolata}
+        \usepackage{inconsolata}\
     ''',
 }
 
@@ -215,7 +205,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
     ('index', 'MFEToolbox.tex', 'MFE Toolbox Documentation',
-     'Kevin Sheppard', 'manual'),
+     __author__, 'manual'),
 ]
 
 # -- Options for manual page output ------------------------------------------
@@ -224,7 +214,7 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'mfetoolbox', 'MFE Toolbox Documentation',
-     [author], 1)
+     [__author__], 1)
 ]
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -234,86 +224,87 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     ('index', 'MFEToolbox', 'MFE Toolbox Documentation',
-     author, 'MFEToolbox', 'Financial Econometrics Toolbox for Python.',
+     __author__, 'MFEToolbox', __description__,
      'Miscellaneous'),
 ]
 
+# -- Options for Epub output -------------------------------------------------
+
+# Bibliographic Dublin Core info.
+epub_title = project
+epub_author = author
+epub_publisher = author
+epub_copyright = copyright
+
+# The unique identifier of the text. This can be a ISBN number
+# or the project homepage.
+epub_identifier = 'https://github.com/bashtage/arch'
+epub_scheme = 'URL'
+epub_uid = f"MFEToolbox-{version}"
+
+# A list of files that should not be packed into the epub file.
+epub_exclude_files = ['search.html']
+
 # -- Extension configuration -------------------------------------------------
 
-# -- Options for nbsphinx ----------------------------------------------------
+# -- nbsphinx configuration --------------------------------------------------
 nbsphinx_execute = 'auto'
 nbsphinx_allow_errors = False
 nbsphinx_timeout = 60  # seconds, default is 30
 
-# -- Options for copybutton --------------------------------------------------
+# -- Napoleon settings -------------------------------------------------------
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_use_keyword = True
+napoleon_custom_sections = None
+
+# -- Mermaid configuration ---------------------------------------------------
+mermaid_params = [
+    '--theme', 'default',
+    '--width', '100%',
+    '--backgroundColor', 'transparent'
+]
+mermaid_init_js = "mermaid.initialize({startOnLoad:true});"
+
+# -- Copybutton configuration ------------------------------------------------
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
 copybutton_prompt_is_regexp = True
 
 # -- Setup for sphinx-apidoc -------------------------------------------------
-# This is needed for autodoc to find the modules
+# In case sphinx-apidoc is used to generate API docs
 def setup(app):
     # Add custom CSS
     app.add_css_file('css/custom.css')
     
     # Add custom JavaScript
-    app.add_js_file('js/mfe-docs.js')
     app.add_js_file('js/mermaid-init.js')
     
-    # Add custom directives or configurations here if needed
-    app.add_config_value('release_date', get_release_date(__version__), 'env')
+    # Register a custom directive for version-specific content
+    from sphinx.directives import other
+    
+    # Custom event handlers
+    app.connect('autodoc-process-docstring', process_docstrings)
+    
+    # Custom configuration values
+    app.add_config_value('package_version', version, 'env')
+    app.add_config_value('is_release', 'dev' not in version, 'env')
 
-# -- Additional configuration ------------------------------------------------
-
-# Add the 'copybutton' JavaScript to the documentation.
-copybutton_selector = "div.highlight pre"
-
-# Enable mermaid diagrams
-mermaid_version = "9.3.0"  # Use the appropriate version
-mermaid_init_js = "mermaid.initialize({startOnLoad:true});"
-
-# Configure mathjax
-mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
-mathjax_config = {
-    'tex2jax': {
-        'inlineMath': [['$', '$'], ['\\(', '\\)']],
-        'displayMath': [['$$', '$$'], ['\\[', '\\]']],
-        'processEscapes': True,
-        'processEnvironments': True,
-    },
-    'HTML-CSS': {
-        'fonts': ['TeX'],
-        'scale': 90,
-        'linebreaks': {
-            'automatic': True,
-        },
-    },
-    'SVG': {
-        'scale': 90,
-        'linebreaks': {
-            'automatic': True,
-        },
-    },
-}
-
-# -- Project-specific configurations -----------------------------------------
-
-# Release date for the documentation
-release_date = get_release_date(__version__)
-
-# Project URLs
-project_urls = {
-    'Source Code': 'https://github.com/bashtage/arch',  # Update with actual repository
-    'Issue Tracker': 'https://github.com/bashtage/arch/issues',  # Update with actual repository
-    'Documentation': 'https://mfe-toolbox.readthedocs.io/',  # Update with actual documentation URL
-}
-
-# Sidebar links
-html_sidebars = {
-    '**': [
-        'about.html',
-        'navigation.html',
-        'relations.html',
-        'searchbox.html',
-        'donate.html',
-    ]
-}
+def process_docstrings(app, what, name, obj, options, lines):
+    """Process docstrings to add custom formatting or annotations."""
+    # Example: Add a note about Numba acceleration to relevant functions
+    if what in ('function', 'method') and hasattr(obj, '__module__'):
+        module_name = obj.__module__
+        if '_numba_core' in module_name or any(x in module_name for x in ['univariate', 'multivariate', 'bootstrap']):
+            lines.append('')
+            lines.append('.. note::')
+            lines.append('   This function is accelerated using Numba JIT compilation for optimal performance.')
+            lines.append('')

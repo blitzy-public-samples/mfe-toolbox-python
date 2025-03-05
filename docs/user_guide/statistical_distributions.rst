@@ -1,4 +1,5 @@
 # docs/user_guide/statistical_distributions.rst
+```rst
 .. _statistical_distributions:
 
 Statistical Distributions
@@ -399,3 +400,4 @@ For detailed information on all distribution classes and methods, see the :ref:`
    - :ref:`univariate_volatility_models` - Using distributions with GARCH models
    - :ref:`multivariate_volatility_models` - Using distributions with multivariate models
    - :ref:`bootstrap_methods` - Resampling methods for statistical inference
+```

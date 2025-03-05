@@ -25,7 +25,7 @@ from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
 from PyQt6.QtCore import (
-    Qt, QSize, QTimer, QObject, QEvent, QRegularExpression, pyqtSignal, pyqtSlot, QPoint
+    Qt, QSize, QTimer, QObject, QEvent, QRegularExpression, pyqtSignal, pyqtSlot
 )
 from PyQt6.QtGui import (
     QColor, QFont, QFontMetrics, QPalette, QPixmap, QRegularExpressionValidator

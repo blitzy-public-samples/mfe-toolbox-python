@@ -1,683 +1,842 @@
 '''
-Common pytest fixtures and configuration for the MFE Toolbox test suite.
+Pytest configuration and fixtures for the MFE Toolbox test suite.
 
-This module provides shared fixtures and utilities for testing the MFE Toolbox,
+This module provides common fixtures and utilities used across the test suite,
 including data generators, mock objects, and parameterized test utilities.
+It ensures consistent test environment setup and streamlines test creation.
 '''
+
 import os
 import tempfile
-import shutil
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, Optional, Callable, Any, Generator
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 from scipy import stats
 from hypothesis import strategies as st
-from hypothesis.extra.numpy import arrays
 
-# Constants for test data generation
-DEFAULT_SEED = 12345
-DEFAULT_SAMPLE_SIZE = 1000
-DEFAULT_BURN = 500
-DEFAULT_VOLATILITY = 0.2
-DEFAULT_MEAN = 0.0
+from mfe.core.exceptions import (
+    MFEError, ParameterError, DimensionError, ConvergenceError, NumericError
+)
+from mfe.core.base import (
+    ModelBase, VolatilityModelBase, MultivariateVolatilityModelBase,
+    TimeSeriesModelBase, BootstrapModelBase, RealizedVolatilityModelBase,
+    CrossSectionalModelBase
+)
+from mfe.core.parameters import (
+    ParameterBase, GARCHParameters, EGARCHParameters, TARCHParameters,
+    APARCHParameters, DCCParameters, ARMAParameters, StudentTParameters,
+    SkewedTParameters, GEDParameters
+)
 
 
-@pytest.fixture(scope="session")
+# ---- Basic Data Generation Fixtures ----
+
+@pytest.fixture
+
 def rng() -> np.random.Generator:
-    """
-    Provide a numpy random number generator with fixed seed for reproducible tests.
-    
-    Returns:
-        np.random.Generator: Seeded random number generator
-    """
-    return np.random.default_rng(DEFAULT_SEED)
-
-
-@pytest.fixture(scope="function")
-def temp_dir() -> Generator[Path, None, None]:
-    """
-    Create a temporary directory for test file operations.
-    
-    Yields:
-        Path: Path to temporary directory that is cleaned up after the test
-    """
-    temp_path = Path(tempfile.mkdtemp())
-    try:
-        yield temp_path
-    finally:
-        shutil.rmtree(temp_path)
-
-
-@pytest.fixture(scope="function")
-def temp_file() -> Generator[Path, None, None]:
-    """
-    Create a temporary file for test operations.
-    
-    Yields:
-        Path: Path to temporary file that is cleaned up after the test
-    """
-    fd, path = tempfile.mkstemp()
-    os.close(fd)
-    temp_path = Path(path)
-    try:
-        yield temp_path
-    finally:
-        if temp_path.exists():
-            temp_path.unlink()
+    """Provide a seeded random number generator for reproducible tests."""
+    return np.random.default_rng(42)
 
 
 @pytest.fixture
-def random_univariate_series(rng: np.random.Generator) -> np.ndarray:
-    """
-    Generate a random univariate time series with standard normal distribution.
-    
-    Args:
-        rng: Random number generator
-        
-    Returns:
-        np.ndarray: Random univariate time series of shape (DEFAULT_SAMPLE_SIZE,)
-    """
-    return rng.standard_normal(DEFAULT_SAMPLE_SIZE)
+
+def sample_size() -> int:
+    """Default sample size for test data."""
+    return 1000
 
 
 @pytest.fixture
-def random_multivariate_series(rng: np.random.Generator, n_assets: int = 5) -> np.ndarray:
-    """
-    Generate a random multivariate time series.
-    
-    Args:
-        rng: Random number generator
-        n_assets: Number of assets (columns) in the series
-        
-    Returns:
-        np.ndarray: Random multivariate time series of shape (DEFAULT_SAMPLE_SIZE, n_assets)
-    """
-    return rng.standard_normal((DEFAULT_SAMPLE_SIZE, n_assets))
+
+def univariate_normal_data(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate univariate normal random data for testing."""
+    return rng.standard_normal(sample_size)
 
 
 @pytest.fixture
-def garch_process(rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Generate a GARCH(1,1) process with known parameters.
+
+def univariate_t_data(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate univariate Student's t random data for testing."""
+    df = 5.0  # Degrees of freedom
+    return rng.standard_t(df, size=sample_size)
+
+
+@pytest.fixture
+
+def univariate_skewed_t_data(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate univariate skewed Student's t random data for testing."""
+    df = 5.0  # Degrees of freedom
+    skew = 0.5  # Skewness parameter
     
-    Args:
-        rng: Random number generator
-        
+    # Generate uniform random variables
+    u = rng.uniform(0, 1, size=sample_size)
+    
+    # Transform to skewed t using inverse CDF method
+    # This is a simplified approximation
+    z = np.zeros(sample_size)
+    mask = u < 0.5
+    
+    # For u < 0.5, use left tail
+    z[mask] = -stats.t.ppf(2 * u[mask], df)
+    
+    # For u >= 0.5, use right tail with skewness
+    z[~mask] = stats.t.ppf(2 * (u[~mask] - 0.5) / (1 + skew) + 0.5, df)
+    
+    return z
+
+
+@pytest.fixture
+
+def multivariate_normal_data(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate multivariate normal random data for testing."""
+    n_assets = 3
+    mean = np.zeros(n_assets)
+    cov = np.array([
+        [1.0, 0.5, 0.3],
+        [0.5, 1.0, 0.2],
+        [0.3, 0.2, 1.0]
+    ])
+    return rng.multivariate_normal(mean, cov, size=sample_size)
+
+
+@pytest.fixture
+
+def time_series_with_trend(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate time series data with a linear trend for testing."""
+    trend = np.linspace(0, 2, sample_size)
+    noise = rng.standard_normal(sample_size) * 0.5
+    return trend + noise
+
+
+@pytest.fixture
+
+def time_series_with_seasonality(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate time series data with seasonality for testing."""
+    t = np.arange(sample_size)
+    seasonality = np.sin(2 * np.pi * t / 50)  # Period of 50
+    noise = rng.standard_normal(sample_size) * 0.3
+    return seasonality + noise
+
+
+@pytest.fixture
+
+def ar1_process(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate AR(1) process for testing."""
+    phi = 0.7  # AR parameter
+    sigma = 1.0  # Innovation standard deviation
+    
+    # Initialize the series
+    y = np.zeros(sample_size)
+    y[0] = rng.standard_normal()
+    
+    # Generate the AR(1) process
+    for t in range(1, sample_size):
+        y[t] = phi * y[t-1] + sigma * rng.standard_normal()
+    
+    return y
+
+
+@pytest.fixture
+
+def ma1_process(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate MA(1) process for testing."""
+    theta = 0.5  # MA parameter
+    sigma = 1.0  # Innovation standard deviation
+    
+    # Generate innovations
+    e = sigma * rng.standard_normal(sample_size + 1)
+    
+    # Generate the MA(1) process
+    y = np.zeros(sample_size)
+    for t in range(sample_size):
+        y[t] = e[t+1] + theta * e[t]
+    
+    return y
+
+
+@pytest.fixture
+
+def arma11_process(rng: np.random.Generator, sample_size: int) -> np.ndarray:
+    """Generate ARMA(1,1) process for testing."""
+    phi = 0.7  # AR parameter
+    theta = 0.5  # MA parameter
+    sigma = 1.0  # Innovation standard deviation
+    
+    # Generate innovations
+    e = sigma * rng.standard_normal(sample_size + 1)
+    
+    # Initialize the series
+    y = np.zeros(sample_size)
+    y[0] = e[1] + theta * e[0]
+    
+    # Generate the ARMA(1,1) process
+    for t in range(1, sample_size):
+        y[t] = phi * y[t-1] + e[t+1] + theta * e[t]
+    
+    return y
+
+
+@pytest.fixture
+
+def garch11_process(rng: np.random.Generator, sample_size: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate GARCH(1,1) process for testing.
+    
     Returns:
-        Tuple[np.ndarray, np.ndarray]: Returns (returns, volatility) arrays
+        Tuple containing (returns, conditional_variances)
     """
-    # GARCH(1,1) parameters
-    omega, alpha, beta = 0.05, 0.1, 0.85
+    omega = 0.05  # Constant
+    alpha = 0.1   # ARCH parameter
+    beta = 0.8    # GARCH parameter
     
     # Initialize arrays
-    n = DEFAULT_SAMPLE_SIZE + DEFAULT_BURN
-    returns = np.zeros(n)
-    sigma2 = np.zeros(n)
+    returns = np.zeros(sample_size)
+    variances = np.zeros(sample_size)
     
-    # Initial variance
-    sigma2[0] = omega / (1 - alpha - beta)
+    # Set initial variance
+    variances[0] = omega / (1 - alpha - beta)
+    returns[0] = np.sqrt(variances[0]) * rng.standard_normal()
     
-    # Generate GARCH process
-    for t in range(1, n):
-        sigma2[t] = omega + alpha * returns[t-1]**2 + beta * sigma2[t-1]
-        returns[t] = rng.standard_normal() * np.sqrt(sigma2[t])
+    # Generate the GARCH(1,1) process
+    for t in range(1, sample_size):
+        variances[t] = omega + alpha * returns[t-1]**2 + beta * variances[t-1]
+        returns[t] = np.sqrt(variances[t]) * rng.standard_normal()
     
-    # Discard burn-in period
-    returns = returns[DEFAULT_BURN:]
-    sigma2 = sigma2[DEFAULT_BURN:]
-    
-    return returns, np.sqrt(sigma2)
+    return returns, variances
 
 
 @pytest.fixture
-def ar1_process(rng: np.random.Generator, ar_coef: float = 0.7) -> np.ndarray:
-    """
-    Generate an AR(1) process with specified coefficient.
+
+def egarch11_process(rng: np.random.Generator, sample_size: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate EGARCH(1,1) process for testing.
     
-    Args:
-        rng: Random number generator
-        ar_coef: AR(1) coefficient
-        
     Returns:
-        np.ndarray: AR(1) process time series
+        Tuple containing (returns, conditional_variances)
     """
-    n = DEFAULT_SAMPLE_SIZE + DEFAULT_BURN
-    series = np.zeros(n)
+    omega = -0.1   # Constant
+    alpha = 0.2    # ARCH parameter
+    gamma = -0.1   # Asymmetry parameter
+    beta = 0.95    # GARCH parameter
     
-    # Generate AR(1) process
-    for t in range(1, n):
-        series[t] = ar_coef * series[t-1] + rng.standard_normal()
+    # Initialize arrays
+    returns = np.zeros(sample_size)
+    log_variances = np.zeros(sample_size)
+    variances = np.zeros(sample_size)
     
-    # Discard burn-in period
-    return series[DEFAULT_BURN:]
+    # Set initial log variance
+    log_variances[0] = omega / (1 - beta)
+    variances[0] = np.exp(log_variances[0])
+    returns[0] = np.sqrt(variances[0]) * rng.standard_normal()
+    
+    # Generate the EGARCH(1,1) process
+    for t in range(1, sample_size):
+        z_t_1 = returns[t-1] / np.sqrt(variances[t-1])
+        log_variances[t] = omega + beta * log_variances[t-1] + alpha * (np.abs(z_t_1) - np.sqrt(2/np.pi)) + gamma * z_t_1
+        variances[t] = np.exp(log_variances[t])
+        returns[t] = np.sqrt(variances[t]) * rng.standard_normal()
+    
+    return returns, variances
 
 
 @pytest.fixture
-def ma1_process(rng: np.random.Generator, ma_coef: float = 0.7) -> np.ndarray:
-    """
-    Generate an MA(1) process with specified coefficient.
+
+def tarch11_process(rng: np.random.Generator, sample_size: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate TARCH(1,1) process for testing.
     
-    Args:
-        rng: Random number generator
-        ma_coef: MA(1) coefficient
-        
     Returns:
-        np.ndarray: MA(1) process time series
+        Tuple containing (returns, conditional_variances)
     """
-    n = DEFAULT_SAMPLE_SIZE + DEFAULT_BURN
-    innovations = rng.standard_normal(n)
-    series = np.zeros(n)
+    omega = 0.05  # Constant
+    alpha = 0.05  # ARCH parameter
+    gamma = 0.1   # Asymmetry parameter
+    beta = 0.8    # GARCH parameter
     
-    # Generate MA(1) process
-    for t in range(1, n):
-        series[t] = innovations[t] + ma_coef * innovations[t-1]
+    # Initialize arrays
+    returns = np.zeros(sample_size)
+    variances = np.zeros(sample_size)
     
-    # Discard burn-in period
-    return series[DEFAULT_BURN:]
+    # Set initial variance
+    variances[0] = omega / (1 - alpha - beta - 0.5 * gamma)
+    returns[0] = np.sqrt(variances[0]) * rng.standard_normal()
+    
+    # Generate the TARCH(1,1) process
+    for t in range(1, sample_size):
+        neg_indicator = returns[t-1] < 0
+        variances[t] = omega + alpha * returns[t-1]**2 + gamma * returns[t-1]**2 * neg_indicator + beta * variances[t-1]
+        returns[t] = np.sqrt(variances[t]) * rng.standard_normal()
+    
+    return returns, variances
 
 
 @pytest.fixture
-def arma11_process(rng: np.random.Generator, ar_coef: float = 0.7, ma_coef: float = 0.3) -> np.ndarray:
-    """
-    Generate an ARMA(1,1) process with specified coefficients.
+
+def dcc_process(rng: np.random.Generator, sample_size: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate DCC process for testing.
     
-    Args:
-        rng: Random number generator
-        ar_coef: AR(1) coefficient
-        ma_coef: MA(1) coefficient
-        
     Returns:
-        np.ndarray: ARMA(1,1) process time series
+        Tuple containing (returns, conditional_correlations)
     """
-    n = DEFAULT_SAMPLE_SIZE + DEFAULT_BURN
-    innovations = rng.standard_normal(n)
-    series = np.zeros(n)
+    n_assets = 3
     
-    # Generate ARMA(1,1) process
-    for t in range(1, n):
-        series[t] = ar_coef * series[t-1] + innovations[t] + ma_coef * innovations[t-1]
+    # GARCH parameters for each asset
+    omega = np.array([0.05, 0.03, 0.04])
+    alpha = np.array([0.1, 0.08, 0.12])
+    beta = np.array([0.8, 0.85, 0.78])
     
-    # Discard burn-in period
-    return series[DEFAULT_BURN:]
-
-
-@pytest.fixture
-def heavy_tailed_series(rng: np.random.Generator, df: float = 5.0) -> np.ndarray:
-    """
-    Generate a heavy-tailed time series using Student's t-distribution.
-    
-    Args:
-        rng: Random number generator
-        df: Degrees of freedom for t-distribution
-        
-    Returns:
-        np.ndarray: Heavy-tailed time series
-    """
-    return stats.t.rvs(df=df, size=DEFAULT_SAMPLE_SIZE, random_state=rng)
-
-
-@pytest.fixture
-def skewed_series(rng: np.random.Generator, skew: float = 0.5) -> np.ndarray:
-    """
-    Generate a skewed time series using skewed normal distribution.
-    
-    Args:
-        rng: Random number generator
-        skew: Skewness parameter
-        
-    Returns:
-        np.ndarray: Skewed time series
-    """
-    return stats.skewnorm.rvs(a=skew, size=DEFAULT_SAMPLE_SIZE, random_state=rng)
-
-
-@pytest.fixture
-def high_frequency_data(rng: np.random.Generator, n_obs: int = 5000) -> pd.DataFrame:
-    """
-    Generate simulated high-frequency price data with timestamps.
-    
-    Args:
-        rng: Random number generator
-        n_obs: Number of observations
-        
-    Returns:
-        pd.DataFrame: DataFrame with 'time' and 'price' columns
-    """
-    # Generate random timestamps over a trading day (6.5 hours)
-    seconds_in_day = 6.5 * 60 * 60
-    timestamps = np.sort(rng.uniform(0, seconds_in_day, n_obs))
-    
-    # Convert to pandas timestamps
-    base_date = pd.Timestamp('2023-01-01 09:30:00')
-    times = [base_date + pd.Timedelta(seconds=t) for t in timestamps]
-    
-    # Generate price path (random walk with drift)
-    log_price = np.zeros(n_obs)
-    log_price[0] = np.log(100.0)  # Start at price 100
-    
-    # Parameters
-    drift = 0.0001  # Small positive drift
-    vol = 0.001     # Small volatility for high-frequency data
-    
-    # Generate log price path
-    for i in range(1, n_obs):
-        time_diff = (timestamps[i] - timestamps[i-1]) / seconds_in_day
-        log_price[i] = log_price[i-1] + drift * time_diff + vol * np.sqrt(time_diff) * rng.standard_normal()
-    
-    # Convert to price
-    price = np.exp(log_price)
-    
-    # Add microstructure noise
-    noise_level = 0.0001
-    noisy_price = price * (1 + noise_level * rng.standard_normal(n_obs))
-    
-    # Create DataFrame
-    return pd.DataFrame({'time': times, 'price': noisy_price})
-
-
-@pytest.fixture
-def multivariate_correlated_series(rng: np.random.Generator, n_assets: int = 5, correlation: float = 0.5) -> np.ndarray:
-    """
-    Generate multivariate time series with specified correlation structure.
-    
-    Args:
-        rng: Random number generator
-        n_assets: Number of assets
-        correlation: Base correlation between assets
-        
-    Returns:
-        np.ndarray: Correlated multivariate time series
-    """
-    # Create correlation matrix with specified correlation
-    corr_matrix = np.ones((n_assets, n_assets)) * correlation
-    np.fill_diagonal(corr_matrix, 1.0)
-    
-    # Ensure positive definite
-    min_eig = np.min(np.linalg.eigvals(corr_matrix))
-    if min_eig < 0:
-        corr_matrix += np.eye(n_assets) * (abs(min_eig) + 0.01)
-    
-    # Generate correlated random variables
-    chol = np.linalg.cholesky(corr_matrix)
-    uncorrelated = rng.standard_normal((DEFAULT_SAMPLE_SIZE, n_assets))
-    correlated = uncorrelated @ chol.T
-    
-    return correlated
-
-
-@pytest.fixture
-def dcc_process(rng: np.random.Generator, n_assets: int = 2) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Generate a DCC-GARCH process with known parameters.
-    
-    Args:
-        rng: Random number generator
-        n_assets: Number of assets
-        
-    Returns:
-        Tuple[np.ndarray, np.ndarray, np.ndarray]: Returns (returns, volatilities, correlations)
-    """
     # DCC parameters
-    a, b = 0.05, 0.93
-    
-    # GARCH parameters for each series
-    garch_params = [(0.05, 0.1, 0.85) for _ in range(n_assets)]
+    a = 0.05
+    b = 0.9
     
     # Initialize arrays
-    n = DEFAULT_SAMPLE_SIZE + DEFAULT_BURN
-    returns = np.zeros((n, n_assets))
-    volatilities = np.zeros((n, n_assets))
-    correlations = np.zeros((n, n_assets, n_assets))
+    returns = np.zeros((sample_size, n_assets))
+    asset_variances = np.zeros((sample_size, n_assets))
+    correlations = np.zeros((sample_size, n_assets, n_assets))
     
-    # Initial unconditional correlation matrix (identity for simplicity)
-    Q_bar = np.eye(n_assets)
-    Q_t = Q_bar.copy()
+    # Unconditional correlation matrix
+    R_bar = np.array([
+        [1.0, 0.5, 0.3],
+        [0.5, 1.0, 0.2],
+        [0.3, 0.2, 1.0]
+    ])
     
-    # Initial volatilities
+    # Set initial values
     for i in range(n_assets):
-        omega, alpha, beta = garch_params[i]
-        volatilities[0, i] = np.sqrt(omega / (1 - alpha - beta))
+        asset_variances[0, i] = omega[i] / (1 - alpha[i] - beta[i])
     
-    # Initial correlation
-    correlations[0] = np.eye(n_assets)
+    correlations[0] = R_bar
     
     # Generate standardized innovations
-    z = rng.standard_normal((n, n_assets))
+    z = rng.standard_normal((sample_size, n_assets))
     
-    # Generate DCC process
-    for t in range(1, n):
-        # Update volatilities for each series
+    # Generate the DCC process
+    for t in range(1, sample_size):
+        # Update asset variances (univariate GARCH)
         for i in range(n_assets):
-            omega, alpha, beta = garch_params[i]
-            volatilities[t, i] = np.sqrt(
-                omega + alpha * returns[t-1, i]**2 + beta * volatilities[t-1, i]**2
-            )
+            asset_variances[t, i] = omega[i] + alpha[i] * returns[t-1, i]**2 + beta[i] * asset_variances[t-1, i]
         
-        # Update Q_t
-        z_lagged = z[t-1].reshape(-1, 1)
-        Q_t = (1 - a - b) * Q_bar + a * (z_lagged @ z_lagged.T) + b * Q_t
+        # Compute standardized residuals
+        std_resid = returns[t-1] / np.sqrt(asset_variances[t-1])
         
-        # Compute correlation matrix
-        Q_diag = np.diag(1.0 / np.sqrt(np.diag(Q_t)))
-        R_t = Q_diag @ Q_t @ Q_diag
+        # Update correlation matrix (DCC)
+        Q_t = (1 - a - b) * R_bar + a * np.outer(std_resid, std_resid) + b * ((1 - a - b) * R_bar + a * np.outer(std_resid, std_resid))
+        
+        # Normalize to get correlation matrix
+        Q_diag_inv_sqrt = np.diag(1 / np.sqrt(np.diag(Q_t)))
+        R_t = Q_diag_inv_sqrt @ Q_t @ Q_diag_inv_sqrt
+        
+        # Store correlation matrix
         correlations[t] = R_t
         
-        # Generate correlated standardized innovations
-        chol = np.linalg.cholesky(R_t)
-        correlated_z = z[t].reshape(-1, 1).T @ chol
-        
         # Generate returns
-        returns[t] = correlated_z.flatten() * volatilities[t]
+        H_t = np.diag(np.sqrt(asset_variances[t])) @ R_t @ np.diag(np.sqrt(asset_variances[t]))
+        returns[t] = rng.multivariate_normal(np.zeros(n_assets), H_t)
     
-    # Discard burn-in period
-    returns = returns[DEFAULT_BURN:]
-    volatilities = volatilities[DEFAULT_BURN:]
-    correlations = correlations[DEFAULT_BURN:]
-    
-    return returns, volatilities, correlations
+    return returns, correlations
 
 
 @pytest.fixture
-def mock_garch_model():
-    """
-    Create a mock GARCH model for testing interfaces without full computation.
+
+def high_frequency_price_data(rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate high-frequency price and time data for testing.
     
     Returns:
-        Mock: A mock GARCH model object
+        Tuple containing (prices, times)
     """
-    class MockGARCHModel:
-        def __init__(self):
-            self.fitted = False
-            self.params = {'omega': 0.05, 'alpha': 0.1, 'beta': 0.85}
-            self.std_errors = {'omega': 0.01, 'alpha': 0.02, 'beta': 0.03}
-            self.log_likelihood = -1500.0
-            self.aic = 3006.0
-            self.bic = 3020.0
-            self.residuals = None
-            self.conditional_volatility = None
-            self.data = None
-        
-        def fit(self, data, starting_values=None):
-            self.data = data
-            self.fitted = True
-            n = len(data)
-            self.residuals = np.random.standard_normal(n)
-            self.conditional_volatility = np.ones(n) * 0.2
-            return self
-        
-        async def fit_async(self, data, starting_values=None, progress_callback=None):
-            if progress_callback:
-                await progress_callback(0.5, "Halfway through estimation")
-            return self.fit(data, starting_values)
-        
-        def forecast(self, horizon=10, num_simulations=1000):
-            if not self.fitted:
-                raise RuntimeError("Model must be fitted before forecasting")
-            point_forecasts = np.ones(horizon) * 0.2
-            forecast_paths = np.ones((num_simulations, horizon)) * 0.2
-            return point_forecasts, forecast_paths
-        
-        def simulate(self, num_simulations=1, horizon=1000):
-            return np.random.standard_normal((num_simulations, horizon))
+    # Generate approximately 1000 intraday observations (about 1 trading day)
+    n_obs = 1000
     
-    return MockGARCHModel()
+    # Generate times (in seconds from market open)
+    times = np.sort(rng.uniform(0, 23400, n_obs))  # 6.5 hours = 23400 seconds
+    
+    # Generate log price process with realistic properties
+    # Start with a random walk
+    log_returns = 0.0001 * rng.standard_normal(n_obs)
+    
+    # Add some microstructure noise
+    noise = 0.00005 * rng.standard_normal(n_obs)
+    log_returns = log_returns + noise
+    
+    # Cumulate to get log prices
+    log_prices = np.cumsum(log_returns)
+    
+    # Convert to prices
+    initial_price = 100.0
+    prices = initial_price * np.exp(log_prices)
+    
+    return prices, times
 
 
 @pytest.fixture
-def mock_arma_model():
-    """
-    Create a mock ARMA model for testing interfaces without full computation.
+
+def cross_sectional_data(rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    """Generate cross-sectional data for testing.
     
     Returns:
-        Mock: A mock ARMA model object
+        Tuple containing (y, X)
     """
-    class MockARMAModel:
-        def __init__(self):
-            self.fitted = False
-            self.params = {'const': 0.0, 'ar.1': 0.7, 'ma.1': 0.3}
-            self.std_errors = {'const': 0.01, 'ar.1': 0.05, 'ma.1': 0.04}
-            self.log_likelihood = -1400.0
-            self.aic = 2806.0
-            self.bic = 2820.0
-            self.residuals = None
-            self.fitted_values = None
-            self.data = None
-            self.ar_order = 1
-            self.ma_order = 1
-            self.include_constant = True
-        
-        def fit(self, data, ar_order=1, ma_order=1, include_constant=True):
-            self.data = data
-            self.fitted = True
-            self.ar_order = ar_order
-            self.ma_order = ma_order
-            self.include_constant = include_constant
-            n = len(data)
-            self.residuals = np.random.standard_normal(n)
-            self.fitted_values = data - self.residuals
-            return self
-        
-        async def fit_async(self, data, ar_order=1, ma_order=1, include_constant=True, progress_callback=None):
-            if progress_callback:
-                await progress_callback(0.5, "Halfway through estimation")
-            return self.fit(data, ar_order, ma_order, include_constant)
-        
-        def forecast(self, horizon=10, exog=None):
-            if not self.fitted:
-                raise RuntimeError("Model must be fitted before forecasting")
-            point_forecasts = np.ones(horizon) * 0.1
-            forecast_std_errors = np.ones(horizon) * 0.2
-            return point_forecasts, forecast_std_errors
-        
-        def simulate(self, num_simulations=1, horizon=1000):
-            return np.random.standard_normal((num_simulations, horizon))
+    n_obs = 100
+    n_vars = 3
     
-    return MockARMAModel()
+    # Generate predictors
+    X = rng.standard_normal((n_obs, n_vars))
+    
+    # True coefficients
+    beta = np.array([1.0, -0.5, 0.2])
+    
+    # Generate dependent variable with noise
+    y = X @ beta + 0.5 * rng.standard_normal(n_obs)
+    
+    return y, X
 
 
-# Hypothesis strategies for generating test data
+# ---- Model Parameter Fixtures ----
+
 @pytest.fixture
-def array_strategy():
-    """
-    Provide a strategy for generating NumPy arrays with various shapes and dtypes.
-    
-    Returns:
-        callable: A function that returns a hypothesis strategy for arrays
-    """
-    def _array_strategy(min_dims=1, max_dims=2, min_side=2, max_side=100, dtype=np.float64):
-        return arrays(
-            dtype=dtype,
-            shape=st.tuples(*(
-                st.integers(min_side, max_side) 
-                for _ in range(st.integers(min_dims, max_dims).example())
-            )),
-            elements=st.floats(min_value=-100, max_value=100, allow_nan=False, allow_infinity=False)
-        )
-    
-    return _array_strategy
+
+def garch_params() -> GARCHParameters:
+    """Create GARCH(1,1) parameters for testing."""
+    return GARCHParameters(omega=0.05, alpha=0.1, beta=0.8)
 
 
 @pytest.fixture
-def time_series_strategy():
-    """
-    Provide a strategy for generating time series data with various properties.
+
+def egarch_params() -> EGARCHParameters:
+    """Create EGARCH(1,1) parameters for testing."""
+    return EGARCHParameters(omega=-0.1, alpha=0.2, gamma=-0.1, beta=0.95)
+
+
+@pytest.fixture
+
+def tarch_params() -> TARCHParameters:
+    """Create TARCH(1,1) parameters for testing."""
+    return TARCHParameters(omega=0.05, alpha=0.05, gamma=0.1, beta=0.8)
+
+
+@pytest.fixture
+
+def aparch_params() -> APARCHParameters:
+    """Create APARCH(1,1) parameters for testing."""
+    return APARCHParameters(omega=0.05, alpha=0.1, gamma=0.1, beta=0.8, delta=1.5)
+
+
+@pytest.fixture
+
+def dcc_params() -> DCCParameters:
+    """Create DCC parameters for testing."""
+    return DCCParameters(a=0.05, b=0.9)
+
+
+@pytest.fixture
+
+def arma_params() -> ARMAParameters:
+    """Create ARMA(1,1) parameters for testing."""
+    return ARMAParameters(
+        ar_params=np.array([0.7]),
+        ma_params=np.array([0.5]),
+        sigma2=1.0,
+        constant=0.0
+    )
+
+
+@pytest.fixture
+
+def student_t_params() -> StudentTParameters:
+    """Create Student's t distribution parameters for testing."""
+    return StudentTParameters(df=5.0)
+
+
+@pytest.fixture
+
+def skewed_t_params() -> SkewedTParameters:
+    """Create skewed Student's t distribution parameters for testing."""
+    return SkewedTParameters(df=5.0, lambda_=0.5)
+
+
+@pytest.fixture
+
+def ged_params() -> GEDParameters:
+    """Create GED distribution parameters for testing."""
+    return GEDParameters(nu=1.5)
+
+
+# ---- Mock Objects ----
+
+class MockVolatilityModel(VolatilityModelBase):
+    """Mock volatility model for testing."""
     
-    Returns:
-        callable: A function that returns a hypothesis strategy for time series
-    """
-    def _time_series_strategy(min_length=10, max_length=1000, with_trend=False, with_seasonality=False):
-        base_series = arrays(
-            dtype=np.float64,
-            shape=st.integers(min_length, max_length),
-            elements=st.floats(min_value=-10, max_value=10, allow_nan=False, allow_infinity=False)
-        )
+    def __init__(self, name="MockVolatilityModel"):
+        super().__init__(name=name)
+        self._params = None
+    
+    def fit(self, data, **kwargs):
+        """Mock implementation of fit method."""
+        self.validate_data(data)
+        self._fitted = True
+        self._params = kwargs.get("params", GARCHParameters(omega=0.05, alpha=0.1, beta=0.8))
+        self._conditional_variances = np.ones_like(data)
         
-        if not with_trend and not with_seasonality:
-            return base_series
+        # Create a simple result object
+        from dataclasses import dataclass
         
-        @st.composite
-        def series_with_components(draw):
-            series = draw(base_series)
-            n = len(series)
+        @dataclass
+        class MockResult:
+            model_name: str
+            convergence: bool = True
+            iterations: int = 10
+            log_likelihood: float = -1000.0
+            aic: float = 2010.0
+            bic: float = 2030.0
             
-            if with_trend:
-                trend_coef = draw(st.floats(min_value=-0.1, max_value=0.1))
-                trend = np.arange(n) * trend_coef
-                series = series + trend
+        self._results = MockResult(model_name=self.name)
+        return self._results
+    
+    def simulate(self, n_periods, burn=0, initial_values=None, random_state=None, **kwargs):
+        """Mock implementation of simulate method."""
+        if not self._fitted:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+        
+        rng = np.random.default_rng(random_state)
+        return rng.standard_normal(n_periods)
+    
+    def compute_variance(self, parameters, data, sigma2=None, backcast=None):
+        """Mock implementation of compute_variance method."""
+        if sigma2 is None:
+            sigma2 = np.ones_like(data)
+        return sigma2
+
+
+class MockMultivariateVolatilityModel(MultivariateVolatilityModelBase):
+    """Mock multivariate volatility model for testing."""
+    
+    def __init__(self, name="MockMultivariateVolatilityModel"):
+        super().__init__(name=name)
+        self._params = None
+    
+    def fit(self, data, **kwargs):
+        """Mock implementation of fit method."""
+        self.validate_data(data)
+        self._fitted = True
+        self._n_assets = data.shape[1]
+        self._params = kwargs.get("params", DCCParameters(a=0.05, b=0.9))
+        
+        # Create mock conditional covariances
+        T = data.shape[0]
+        self._conditional_covariances = np.zeros((self._n_assets, self._n_assets, T))
+        for t in range(T):
+            self._conditional_covariances[:, :, t] = np.eye(self._n_assets)
+        
+        # Create a simple result object
+        from dataclasses import dataclass
+        
+        @dataclass
+        class MockResult:
+            model_name: str
+            convergence: bool = True
+            iterations: int = 10
+            log_likelihood: float = -1000.0
+            aic: float = 2010.0
+            bic: float = 2030.0
             
-            if with_seasonality:
-                period = draw(st.integers(min_value=2, max_value=min(50, n // 2)))
-                amplitude = draw(st.floats(min_value=0.1, max_value=2.0))
-                seasonal = amplitude * np.sin(2 * np.pi * np.arange(n) / period)
-                series = series + seasonal
+        self._results = MockResult(model_name=self.name)
+        return self._results
+    
+    def simulate(self, n_periods, burn=0, initial_values=None, random_state=None, **kwargs):
+        """Mock implementation of simulate method."""
+        if not self._fitted:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+        
+        rng = np.random.default_rng(random_state)
+        return rng.standard_normal((n_periods, self._n_assets))
+    
+    def compute_covariance(self, parameters, data, sigma=None, backcast=None):
+        """Mock implementation of compute_covariance method."""
+        T = data.shape[0]
+        n_assets = data.shape[1]
+        
+        if sigma is None:
+            sigma = np.zeros((n_assets, n_assets, T))
+            for t in range(T):
+                sigma[:, :, t] = np.eye(n_assets)
+        
+        return sigma
+
+
+class MockTimeSeriesModel(TimeSeriesModelBase):
+    """Mock time series model for testing."""
+    
+    def __init__(self, name="MockTimeSeriesModel"):
+        super().__init__(name=name)
+        self._params = None
+    
+    def fit(self, data, **kwargs):
+        """Mock implementation of fit method."""
+        data_array = self.validate_data(data)
+        self._fitted = True
+        self._params = kwargs.get("params", ARMAParameters(
+            ar_params=np.array([0.7]),
+            ma_params=np.array([0.5]),
+            sigma2=1.0,
+            constant=0.0
+        ))
+        
+        # Create mock fitted values and residuals
+        self._fitted_values = np.zeros_like(data_array)
+        self._residuals = data_array - self._fitted_values
+        
+        # Create a simple result object
+        from dataclasses import dataclass
+        
+        @dataclass
+        class MockResult:
+            model_name: str
+            convergence: bool = True
+            iterations: int = 10
+            log_likelihood: float = -1000.0
+            aic: float = 2010.0
+            bic: float = 2030.0
             
-            return series
-        
-        return series_with_components()
+        self._results = MockResult(model_name=self.name)
+        return self._results
     
-    return _time_series_strategy
+    def simulate(self, n_periods, burn=0, initial_values=None, random_state=None, **kwargs):
+        """Mock implementation of simulate method."""
+        if not self._fitted:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+        
+        rng = np.random.default_rng(random_state)
+        return rng.standard_normal(n_periods)
+    
+    def forecast(self, steps, exog=None, confidence_level=0.95, **kwargs):
+        """Mock implementation of forecast method."""
+        if not self._fitted:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+        
+        # Generate mock forecasts
+        forecasts = np.zeros(steps)
+        lower_bounds = forecasts - 1.96
+        upper_bounds = forecasts + 1.96
+        
+        return forecasts, lower_bounds, upper_bounds
 
 
 @pytest.fixture
-def parametrize_models():
-    """
-    Provide a utility for parametrizing tests across multiple model types.
-    
-    Returns:
-        callable: A decorator function for parametrizing tests
-    """
-    def _parametrize_models(model_types):
-        """
-        Parametrize a test function to run with multiple model types.
-        
-        Args:
-            model_types: List of model types to test
-        
-        Returns:
-            decorator: pytest parametrize decorator
-        """
-        return pytest.mark.parametrize("model_type", model_types)
-    
-    return _parametrize_models
+
+def mock_volatility_model() -> MockVolatilityModel:
+    """Create a mock volatility model for testing."""
+    return MockVolatilityModel()
 
 
 @pytest.fixture
-def parametrize_distributions():
-    """
-    Provide a utility for parametrizing tests across multiple distribution types.
-    
-    Returns:
-        callable: A decorator function for parametrizing tests
-    """
-    def _parametrize_distributions(distribution_types):
-        """
-        Parametrize a test function to run with multiple distribution types.
-        
-        Args:
-            distribution_types: List of distribution types to test
-        
-        Returns:
-            decorator: pytest parametrize decorator
-        """
-        return pytest.mark.parametrize("distribution_type", distribution_types)
-    
-    return _parametrize_distributions
+
+def mock_multivariate_volatility_model() -> MockMultivariateVolatilityModel:
+    """Create a mock multivariate volatility model for testing."""
+    return MockMultivariateVolatilityModel()
 
 
 @pytest.fixture
-def assert_array_equal():
-    """
-    Provide a utility for asserting array equality with tolerance.
-    
-    Returns:
-        callable: A function for asserting array equality
-    """
-    def _assert_array_equal(actual, expected, rtol=1e-7, atol=1e-10, err_msg=""):
-        """
-        Assert that two arrays are equal within a tolerance.
-        
-        Args:
-            actual: Actual array
-            expected: Expected array
-            rtol: Relative tolerance
-            atol: Absolute tolerance
-            err_msg: Error message
-        
-        Raises:
-            AssertionError: If arrays are not equal within tolerance
-        """
-        np.testing.assert_allclose(actual, expected, rtol=rtol, atol=atol, err_msg=err_msg)
-    
-    return _assert_array_equal
+
+def mock_time_series_model() -> MockTimeSeriesModel:
+    """Create a mock time series model for testing."""
+    return MockTimeSeriesModel()
+
+
+# ---- Temporary File and Directory Fixtures ----
+
+@pytest.fixture
+
+def temp_dir() -> str:
+    """Create a temporary directory for test files."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        yield tmp_dir
 
 
 @pytest.fixture
-def assert_series_equal():
-    """
-    Provide a utility for asserting pandas Series equality.
+
+def temp_file() -> str:
+    """Create a temporary file for testing."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_name = tmp_file.name
     
-    Returns:
-        callable: A function for asserting Series equality
-    """
-    def _assert_series_equal(actual, expected, rtol=1e-7, atol=1e-10, check_index=True, err_msg=""):
-        """
-        Assert that two pandas Series are equal within a tolerance.
-        
-        Args:
-            actual: Actual Series
-            expected: Expected Series
-            rtol: Relative tolerance
-            atol: Absolute tolerance
-            check_index: Whether to check index equality
-            err_msg: Error message
-        
-        Raises:
-            AssertionError: If Series are not equal within tolerance
-        """
-        pd.testing.assert_series_equal(
-            actual, expected, 
-            rtol=rtol, atol=atol, 
-            check_index=check_index,
-            check_names=check_index,
-            obj=err_msg
+    yield tmp_name
+    
+    # Clean up the file after the test
+    try:
+        os.unlink(tmp_name)
+    except:
+        pass
+
+
+# ---- Hypothesis Strategies for Property-Based Testing ----
+
+@pytest.fixture
+
+def garch_param_strategy() -> st.SearchStrategy:
+    """Strategy for generating valid GARCH parameters."""
+    return st.fixed_dictionaries({
+        'omega': st.floats(min_value=0.001, max_value=0.1),
+        'alpha': st.floats(min_value=0.01, max_value=0.3),
+        'beta': st.floats(min_value=0.5, max_value=0.85)
+    }).filter(lambda params: params['alpha'] + params['beta'] < 0.99)
+
+
+@pytest.fixture
+
+def egarch_param_strategy() -> st.SearchStrategy:
+    """Strategy for generating valid EGARCH parameters."""
+    return st.fixed_dictionaries({
+        'omega': st.floats(min_value=-0.5, max_value=0.5),
+        'alpha': st.floats(min_value=0.01, max_value=0.5),
+        'gamma': st.floats(min_value=-0.3, max_value=0.3),
+        'beta': st.floats(min_value=0.5, max_value=0.98)
+    }).filter(lambda params: abs(params['beta']) < 0.99)
+
+
+@pytest.fixture
+
+def tarch_param_strategy() -> st.SearchStrategy:
+    """Strategy for generating valid TARCH parameters."""
+    return st.fixed_dictionaries({
+        'omega': st.floats(min_value=0.001, max_value=0.1),
+        'alpha': st.floats(min_value=0.01, max_value=0.2),
+        'gamma': st.floats(min_value=0.01, max_value=0.2),
+        'beta': st.floats(min_value=0.5, max_value=0.85)
+    }).filter(lambda params: params['alpha'] + params['beta'] + 0.5 * params['gamma'] < 0.99)
+
+
+@pytest.fixture
+
+def arma_param_strategy() -> st.SearchStrategy:
+    """Strategy for generating valid ARMA parameters."""
+    return st.fixed_dictionaries({
+        'ar_params': st.lists(st.floats(min_value=-0.9, max_value=0.9), min_size=1, max_size=3),
+        'ma_params': st.lists(st.floats(min_value=-0.9, max_value=0.9), min_size=1, max_size=3),
+        'sigma2': st.floats(min_value=0.1, max_value=2.0),
+        'constant': st.floats(min_value=-1.0, max_value=1.0)
+    })
+
+
+@pytest.fixture
+
+def distribution_param_strategy() -> st.SearchStrategy:
+    """Strategy for generating valid distribution parameters."""
+    return st.one_of(
+        st.fixed_dictionaries({
+            'distribution': st.just('normal')
+        }),
+        st.fixed_dictionaries({
+            'distribution': st.just('t'),
+            'df': st.floats(min_value=2.1, max_value=30.0)
+        }),
+        st.fixed_dictionaries({
+            'distribution': st.just('skewed_t'),
+            'df': st.floats(min_value=2.1, max_value=30.0),
+            'lambda_': st.floats(min_value=-0.9, max_value=0.9)
+        }),
+        st.fixed_dictionaries({
+            'distribution': st.just('ged'),
+            'nu': st.floats(min_value=0.5, max_value=5.0)
+        })
+    )
+
+
+# ---- Parameterization Utilities ----
+
+def pytest_generate_tests(metafunc):
+    """Custom test generation for parameterized tests."""
+    # Example of custom parameterization
+    if "distribution_type" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "distribution_type",
+            ["normal", "t", "skewed_t", "ged"]
         )
     
-    return _assert_series_equal
-
-
-@pytest.fixture
-def assert_frame_equal():
-    """
-    Provide a utility for asserting pandas DataFrame equality.
-    
-    Returns:
-        callable: A function for asserting DataFrame equality
-    """
-    def _assert_frame_equal(actual, expected, rtol=1e-7, atol=1e-10, check_index=True, check_column_order=True, err_msg=""):
-        """
-        Assert that two pandas DataFrames are equal within a tolerance.
-        
-        Args:
-            actual: Actual DataFrame
-            expected: Expected DataFrame
-            rtol: Relative tolerance
-            atol: Absolute tolerance
-            check_index: Whether to check index equality
-            check_column_order: Whether to check column order
-            err_msg: Error message
-        
-        Raises:
-            AssertionError: If DataFrames are not equal within tolerance
-        """
-        pd.testing.assert_frame_equal(
-            actual, expected, 
-            rtol=rtol, atol=atol, 
-            check_index=check_index,
-            check_column_order=check_column_order,
-            obj=err_msg
+    if "volatility_model_type" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "volatility_model_type",
+            ["GARCH", "EGARCH", "TARCH", "APARCH"]
         )
     
-    return _assert_frame_equal
+    if "multivariate_model_type" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "multivariate_model_type",
+            ["DCC", "BEKK", "CCC", "RARCH"]
+        )
+
+
+# ---- Utility Functions for Tests ----
+
+def assert_array_equal(actual, expected, rtol=1e-7, atol=1e-7, err_msg=""):
+    """Assert that two arrays are equal within tolerance."""
+    np.testing.assert_allclose(actual, expected, rtol=rtol, atol=atol, err_msg=err_msg)
+
+
+def assert_series_equal(actual, expected, rtol=1e-7, atol=1e-7, err_msg=""):
+    """Assert that two pandas Series are equal within tolerance."""
+    pd.testing.assert_series_equal(
+        actual, expected, 
+        rtol=rtol, atol=atol, 
+        check_dtype=False, 
+        check_index_type=False,
+        check_names=False,
+        obj=err_msg
+    )
+
+
+def assert_frame_equal(actual, expected, rtol=1e-7, atol=1e-7, err_msg=""):
+    """Assert that two pandas DataFrames are equal within tolerance."""
+    pd.testing.assert_frame_equal(
+        actual, expected, 
+        rtol=rtol, atol=atol, 
+        check_dtype=False, 
+        check_index_type=False,
+        check_column_type=False,
+        check_names=False,
+        obj=err_msg
+    )
+
+
+def assert_parameters_equal(actual, expected, rtol=1e-7, atol=1e-7, err_msg=""):
+    """Assert that two parameter objects are equal within tolerance."""
+    assert type(actual) == type(expected), f"Parameter types do not match: {type(actual)} != {type(expected)}"
+    
+    # Convert to dictionaries
+    actual_dict = actual.to_dict()
+    expected_dict = expected.to_dict()
+    
+    # Check that keys match
+    assert set(actual_dict.keys()) == set(expected_dict.keys()), f"Parameter keys do not match: {set(actual_dict.keys())} != {set(expected_dict.keys())}"
+    
+    # Check each parameter
+    for key in actual_dict:
+        actual_val = actual_dict[key]
+        expected_val = expected_dict[key]
+        
+        if isinstance(actual_val, np.ndarray) and isinstance(expected_val, np.ndarray):
+            assert_array_equal(actual_val, expected_val, rtol=rtol, atol=atol, err_msg=f"{err_msg} Parameter '{key}' does not match")
+        else:
+            assert abs(actual_val - expected_val) <= atol + rtol * abs(expected_val), f"{err_msg} Parameter '{key}' does not match: {actual_val} != {expected_val}"
+
+
+def assert_model_results_equal(actual, expected, rtol=1e-7, atol=1e-7, err_msg=""):
+    """Assert that two model result objects are equal within tolerance."""
+    # Check common attributes
+    for attr in ['model_name', 'convergence', 'iterations']:
+        assert hasattr(actual, attr), f"Actual result missing attribute: {attr}"
+        assert hasattr(expected, attr), f"Expected result missing attribute: {attr}"
+        assert getattr(actual, attr) == getattr(expected, attr), f"{err_msg} Attribute '{attr}' does not match: {getattr(actual, attr)} != {getattr(expected, attr)}"
+    
+    # Check numeric attributes with tolerance
+    for attr in ['log_likelihood', 'aic', 'bic']:
+        if hasattr(actual, attr) and hasattr(expected, attr):
+            actual_val = getattr(actual, attr)
+            expected_val = getattr(expected, attr)
+            
+            # Handle None values
+            if actual_val is None and expected_val is None:
+                continue
+            
+            assert actual_val is not None, f"{err_msg} Attribute '{attr}' is None in actual but not in expected"
+            assert expected_val is not None, f"{err_msg} Attribute '{attr}' is None in expected but not in actual"
+            
+            assert abs(actual_val - expected_val) <= atol + rtol * abs(expected_val), f"{err_msg} Attribute '{attr}' does not match: {actual_val} != {expected_val}"

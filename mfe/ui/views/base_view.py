@@ -1,5 +1,4 @@
 # mfe/ui/views/base_view.py
-
 """
 Base View Class for MFE Toolbox UI Components
 

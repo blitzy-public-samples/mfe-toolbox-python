@@ -1,7 +1,4 @@
-Based on the repository structure and the requirements, I'll now create the API overview document.
-
 # docs/user_guide/api_overview.rst
-
 =======================
 API Overview
 =======================

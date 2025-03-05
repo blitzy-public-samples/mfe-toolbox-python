@@ -1,87 +1,71 @@
 [run]
-# Define source packages to measure
 source = mfe
-
-# Include branch coverage to measure conditional statements
-branch = True
-
-# Enable parallel mode for multi-process testing
-parallel = True
-
-# Define paths to omit from coverage measurement
 omit =
-    # Exclude test files
+    # Omit test files
     */tests/*
-    # Exclude setup files
-    */setup.py
-    # Exclude documentation files
+    # Omit documentation files
     */docs/*
-    # Exclude version file
-    */mfe/version.py
-    # Exclude __init__.py files as they mostly contain imports
+    # Omit setup files
+    setup.py
+    # Omit version file
+    mfe/version.py
+    # Omit __init__ files as they typically just import things
     */__init__.py
-    # Exclude UI resources
-    */mfe/ui/resources/*
+    # Omit UI resources
+    mfe/ui/resources/*
 
-# Define plugins
-plugins =
-    coverage_conditional_plugin
+branch = True
+parallel = True
+concurrency = multiprocessing
+data_file = .coverage
 
 [report]
-# Exclude lines from coverage report
+# Regexes for lines to exclude from consideration
 exclude_lines =
-    # Skip any pragma comments
+    # Have to re-enable the standard pragma
     pragma: no cover
-    
-    # Skip defensive assertion code
-    raise NotImplementedError
-    
-    # Skip abstract methods
-    @abstractmethod
-    
-    # Skip debug-only code
+
+    # Don't complain about missing debug-only code
     def __repr__
     if self\.debug
-    
-    # Skip exception handling branches that can't be tested easily
-    except ImportError
-    except AttributeError
-    
-    # Skip type checking blocks
-    if TYPE_CHECKING:
-    
-    # Skip pass statements
-    pass
 
-# Show missing line numbers in report
+    # Don't complain if tests don't hit defensive assertion code
+    raise NotImplementedError
+    pass
+    raise ImportError
+
+    # Don't complain if non-runnable code isn't run
+    if 0:
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+    # Don't complain about abstract methods
+    @abstractmethod
+
+# Ignore source code that can't be found
+ignore_errors = True
+
+# Show missing lines in the report
 show_missing = True
 
-# Set precision for coverage percentage
+# Precision for coverage percentages
 precision = 2
 
-# Skip empty files
-skip_empty = True
-
-# Set minimum coverage percentage for success
+# Fail if coverage is below this threshold
 fail_under = 80
 
 [html]
-# Directory for HTML report output
-directory = coverage_html_report
-
-# Title for HTML report
+directory = htmlcov
 title = MFE Toolbox Coverage Report
 
 [xml]
-# Output file for XML report (for CI/CD integration)
 output = coverage.xml
 
 [json]
-# Output file for JSON report
 output = coverage.json
+pretty_print = True
 
 [paths]
-# Handle path aliases for accurate coverage measurement
 source =
     mfe/
     */site-packages/mfe/

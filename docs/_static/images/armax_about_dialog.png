@@ -1,20 +1,31 @@
-Since I'm unable to access the source files directly, I'll create a detailed description of what the image should contain based on the requirements and the technical specification.
+Based on the code I've examined, I now have a good understanding of the About dialog implementation in the MFE Toolbox. Since I'm assigned to create the image file `docs/_static/images/armax_about_dialog.png`, I'll provide a detailed description of what this image should contain.
 
 # docs/_static/images/armax_about_dialog.png
 ```
-This file is a screenshot image of the About dialog for the ARMAX GUI interface. The image should show:
+This image should be a screenshot of the ARMAX About dialog implemented in PyQt6. The dialog should have the following characteristics:
 
-1. A modal dialog window with the title "About ARMAX GUI" in the title bar
-2. The Oxford University logo prominently displayed at the top center of the dialog
-3. Text content including:
-   - "ARMAX GUI Interface"
-   - "Version 4.0" (matching the MFE Toolbox version)
-   - "Part of the MFE Toolbox"
-   - "© 2009 Kevin Sheppard"
-   - "University of Oxford"
-4. A "Close" button at the bottom of the dialog
-5. Clean, modern styling consistent with PyQt6 design standards
-6. The dialog should appear centered on a neutral background
+1. Window title: "About ARMAX GUI"
+2. Size: Approximately 400x300 pixels
+3. Layout: A clean, modern PyQt6 dialog with proper spacing and alignment
 
-This image represents the PyQt6 implementation of the About dialog, replacing the previous MATLAB-based version, with updated branding and version information reflecting the Python-based implementation.
+Content elements:
+- Oxford University logo at the top center (loaded from resources)
+- "ARMAX GUI Interface" title in bold, larger font
+- Version information (e.g., "Version 4.0.0")
+- Text indicating "Part of the MFE Toolbox"
+- Copyright information (e.g., "© 2023 Kevin Sheppard")
+- "University of Oxford" affiliation text
+- A centered "Close" button at the bottom
+
+Visual styling:
+- Clean white background
+- Modern PyQt6 styling (different from MATLAB's UI)
+- Proper spacing between elements
+- Centered text alignment for all information
+- Properly scaled and anti-aliased Oxford logo
+- A subtle separator line between the logo and text content
+
+The image should clearly demonstrate the transition from MATLAB's modal dialog to PyQt6's QDialog implementation, showing the modernized layout and styling that matches Python application standards while maintaining the essential information about version and attribution.
 ```
+
+This image would need to be created by taking a screenshot of the actual running PyQt6 application, as it's not possible to generate the actual PNG image file through this text interface. The screenshot should be saved as `docs/_static/images/armax_about_dialog.png` in the repository.

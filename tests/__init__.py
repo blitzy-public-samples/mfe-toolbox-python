@@ -1,119 +1,112 @@
 """
 MFE Toolbox Test Suite
 
-This module initializes the test package for the MFE Toolbox, providing
-common utilities, fixtures, and configuration for testing the Python-based
-financial econometrics library.
+This package contains tests for the MFE Toolbox, a comprehensive Python-based suite
+for financial econometrics, time series analysis, and risk modeling.
 
-The test suite uses pytest as the primary testing framework, with additional
-support for property-based testing via hypothesis, and specialized fixtures
-for generating financial time series data.
+The test suite verifies the functionality, accuracy, and performance of the toolbox's
+components, ensuring reliable results for financial and economic analyses.
 """
 
 import os
 import sys
-from pathlib import Path
 import pytest
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-# Test package version
-__version__ = "4.0.0"
+# Version information for the test package
+__version__ = "1.0.0"
 
-# Add parent directory to path if running tests directly
-parent_dir = Path(__file__).parent.parent
-if parent_dir not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
-# Import common pytest markers for easier access in test modules
-from pytest import mark
-
-# Common test markers
-slow = mark.slow
-integration = mark.integration
-gpu = mark.gpu
-numba = mark.numba
-async_test = mark.async_test
-property_test = mark.property
-benchmark = mark.benchmark
-
-# Import commonly used fixtures for convenience
+# Import commonly used test utilities and fixtures
 from tests.conftest import (
+    # Basic data generation fixtures
     rng,
-    temp_dir,
-    temp_file,
-    random_univariate_series,
-    random_multivariate_series,
-    garch_process,
+    sample_size,
+    univariate_normal_data,
+    univariate_t_data,
+    univariate_skewed_t_data,
+    multivariate_normal_data,
+    time_series_with_trend,
+    time_series_with_seasonality,
     ar1_process,
     ma1_process,
     arma11_process,
-    heavy_tailed_series,
-    skewed_series,
-    high_frequency_data,
-    multivariate_correlated_series,
+    garch11_process,
+    egarch11_process,
+    tarch11_process,
     dcc_process,
-    mock_garch_model,
-    mock_arma_model,
-    array_strategy,
-    time_series_strategy,
-    parametrize_models,
-    parametrize_distributions,
+    high_frequency_price_data,
+    cross_sectional_data,
+    
+    # Model parameter fixtures
+    garch_params,
+    egarch_params,
+    tarch_params,
+    aparch_params,
+    dcc_params,
+    arma_params,
+    student_t_params,
+    skewed_t_params,
+    ged_params,
+    
+    # Mock objects
+    mock_volatility_model,
+    mock_multivariate_volatility_model,
+    mock_time_series_model,
+    
+    # Temporary file and directory fixtures
+    temp_dir,
+    temp_file,
+    
+    # Hypothesis strategies
+    garch_param_strategy,
+    egarch_param_strategy,
+    tarch_param_strategy,
+    arma_param_strategy,
+    distribution_param_strategy,
+    
+    # Assertion utilities
     assert_array_equal,
     assert_series_equal,
-    assert_frame_equal
+    assert_frame_equal,
+    assert_parameters_equal,
+    assert_model_results_equal,
 )
+
+# Define custom pytest markers for test categorization
+pytest.mark.univariate = pytest.mark.univariate
+pytest.mark.multivariate = pytest.mark.multivariate
+pytest.mark.timeseries = pytest.mark.timeseries
+pytest.mark.bootstrap = pytest.mark.bootstrap
+pytest.mark.realized = pytest.mark.realized
+pytest.mark.distributions = pytest.mark.distributions
+pytest.mark.tests = pytest.mark.tests
+pytest.mark.cross_section = pytest.mark.cross_section
+pytest.mark.numba = pytest.mark.numba
+pytest.mark.slow = pytest.mark.slow
+pytest.mark.gui = pytest.mark.gui
 
 # Environment detection for test configuration
 def is_ci_environment() -> bool:
-    """
-    Detect if tests are running in a CI environment.
-    
-    Returns:
-        bool: True if running in a CI environment, False otherwise
-    """
-    return any(os.environ.get(var) for var in [
-        'CI', 'GITHUB_ACTIONS', 'TRAVIS', 'CIRCLECI', 'APPVEYOR', 'GITLAB_CI'
-    ])
+    """Check if tests are running in a CI environment."""
+    return os.environ.get("CI", "false").lower() == "true"
 
-def has_numba_support() -> bool:
-    """
-    Check if Numba is available and working correctly.
-    
-    Returns:
-        bool: True if Numba is available and working, False otherwise
-    """
+def is_numba_available() -> bool:
+    """Check if Numba is available for JIT compilation."""
     try:
         import numba
         return True
     except ImportError:
         return False
 
-def has_gpu_support() -> bool:
-    """
-    Check if GPU acceleration is available through Numba.
-    
-    Returns:
-        bool: True if GPU acceleration is available, False otherwise
-    """
+def is_gui_testable() -> bool:
+    """Check if GUI tests can be run in the current environment."""
     try:
-        import numba.cuda
-        return numba.cuda.is_available()
-    except (ImportError, AttributeError):
+        from PyQt6.QtWidgets import QApplication
+        return not is_ci_environment() or os.environ.get("DISPLAY", "") != ""
+    except ImportError:
         return False
 
-def has_async_support() -> bool:
-    """
-    Check if Python version supports async/await syntax.
-    
-    Returns:
-        bool: True if async/await is supported, False otherwise
-    """
-    return sys.version_info >= (3, 7)
-
-# Configure test environment based on capabilities
-TEST_CONFIG = {
-    'ci_environment': is_ci_environment(),
-    'numba_support': has_numba_support(),
-    'gpu_support': has_gpu_support(),
-    'async_support': has_async_support(),
-    'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-}
+# Test configuration based on environment
+SKIP_SLOW_TESTS = os.environ.get("SKIP_SLOW_TESTS", "false").lower() == "true"
+SKIP_GUI_TESTS = os.environ.get("SKIP_GUI_TESTS", "false").lower() == "true" or not is_gui_testable()
+USE_NUMBA = os.environ.get("USE_NUMBA", "true").lower() == "true" and is_numba_available()
