@@ -737,3 +737,6 @@ class PreaveragedVariance(NoiseRobustEstimator):
         window_str = f", window_size={self._window_size}"
         config_str = f", config={self._config}" if self._config else ""
         return f"PreaveragedVariance({fitted_str}{window_str}{config_str})"
+
+# Create alias for backward compatibility
+PreaveragedRealizedVariance = PreaveragedVariance

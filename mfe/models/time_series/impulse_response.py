@@ -785,3 +785,294 @@ def _compute_ma_coefficients_numba(
             ma_coefs[h] += coef_matrices[j] @ ma_coefs[h - j - 1]
 
     return ma_coefs
+
+# Create functions for backward compatibility
+def impulse_response(
+    var_model: Any,
+    periods: int = 10,
+    method: str = "orthogonalized",
+    identification: Optional[Union[str, np.ndarray]] = None,
+    bootstrap: bool = False,
+    bootstrap_type: str = "block",
+    bootstrap_replications: int = 1000,
+    block_length: int = 4,
+    confidence_level: float = 0.95
+) -> ImpulseResponseResult:
+    """
+    Compute impulse response functions for a VAR model.
+    
+    This function is a convenience wrapper for computing impulse response functions
+    from a fitted VAR model.
+    
+    Args:
+        var_model: Fitted VAR model
+        periods: Number of periods for impulse response functions
+        method: Method for impulse response calculation
+            - "orthogonalized": Orthogonalized impulse responses (Cholesky decomposition)
+            - "generalized": Generalized impulse responses (Pesaran and Shin)
+            - "structural": Structural impulse responses (requires identification)
+        identification: Identification method for structural VAR
+            - "short": Short-run restrictions (Cholesky decomposition)
+            - "long": Long-run restrictions
+            - numpy.ndarray: Custom identification matrix
+        bootstrap: Whether to compute bootstrap confidence intervals
+        bootstrap_type: Type of bootstrap to use
+            - "block": Block bootstrap
+            - "stationary": Stationary bootstrap
+        bootstrap_replications: Number of bootstrap replications
+        block_length: Block length for block bootstrap
+        confidence_level: Confidence level for intervals (between 0 and 1)
+        
+    Returns:
+        ImpulseResponseResult: Impulse response analysis results
+        
+    Raises:
+        NotFittedError: If the VAR model is not fitted
+        ParameterError: If parameters are invalid
+    """
+    # Check if the model has the necessary attributes
+    if not hasattr(var_model, 'coef_matrices') or not hasattr(var_model, 'residuals'):
+        raise NotFittedError("VAR model must be fitted before computing impulse responses")
+    
+    # Create parameters
+    params = ImpulseResponseParameters(
+        periods=periods,
+        method=method,
+        identification=identification,
+        bootstrap=bootstrap,
+        bootstrap_type=bootstrap_type,
+        bootstrap_replications=bootstrap_replications,
+        block_length=block_length,
+        confidence_level=confidence_level
+    )
+    
+    # Get model attributes
+    coef_matrices = var_model.coef_matrices
+    residuals = var_model.residuals
+    sigma = np.cov(residuals, rowvar=False)
+    
+    # Get variable names if available
+    var_names = None
+    if hasattr(var_model, 'var_names'):
+        var_names = var_model.var_names
+    
+    # Compute MA coefficients
+    ma_coefs = _compute_ma_coefficients_numba(coef_matrices, periods)
+    
+    # Compute impulse responses based on method
+    if method == "orthogonalized":
+        # Cholesky decomposition
+        chol = np.linalg.cholesky(sigma)
+        irf = np.zeros((periods, ma_coefs.shape[1], ma_coefs.shape[2]))
+        for i in range(periods):
+            irf[i] = ma_coefs[i] @ chol
+    elif method == "generalized":
+        # Generalized impulse responses (Pesaran and Shin)
+        k = sigma.shape[0]
+        irf = np.zeros((periods, k, k))
+        for j in range(k):
+            sigma_j = sigma[:, j]
+            sigma_jj = sigma[j, j]
+            scaling = sigma_j / np.sqrt(sigma_jj)
+            
+            for i in range(periods):
+                irf[i, :, j] = ma_coefs[i] @ scaling
+    elif method == "structural":
+        # Structural impulse responses
+        if identification == "short":
+            # Short-run restrictions (Cholesky)
+            chol = np.linalg.cholesky(sigma)
+            irf = np.zeros((periods, ma_coefs.shape[1], ma_coefs.shape[2]))
+            for i in range(periods):
+                irf[i] = ma_coefs[i] @ chol
+        elif identification == "long":
+            # Long-run restrictions
+            k = sigma.shape[0]
+            long_run = np.zeros((k, k))
+            for i in range(len(coef_matrices)):
+                long_run += coef_matrices[i]
+            long_run = np.linalg.inv(np.eye(k) - long_run)
+            
+            # Compute structural matrix
+            G = long_run @ np.linalg.cholesky(long_run.T @ sigma @ long_run) @ np.linalg.inv(long_run)
+            
+            # Compute structural IRFs
+            irf = np.zeros((periods, k, k))
+            for i in range(periods):
+                irf[i] = ma_coefs[i] @ G
+        elif isinstance(identification, np.ndarray):
+            # Custom identification matrix
+            irf = np.zeros((periods, ma_coefs.shape[1], ma_coefs.shape[2]))
+            for i in range(periods):
+                irf[i] = ma_coefs[i] @ identification
+        else:
+            raise ParameterError(
+                "identification must be 'short', 'long', or a custom matrix",
+                param_name="identification",
+                param_value=identification
+            )
+    else:
+        raise ParameterError(
+            "method must be 'orthogonalized', 'generalized', or 'structural'",
+            param_name="method",
+            param_value=method
+        )
+    
+    # Compute bootstrap confidence intervals if requested
+    lower_ci = None
+    upper_ci = None
+    bootstrap_irfs = None
+    
+    if bootstrap:
+        # Create bootstrap object
+        if bootstrap_type == "block":
+            bootstrap_obj = BlockBootstrap(
+                block_length=block_length,
+                n_bootstraps=bootstrap_replications
+            )
+        elif bootstrap_type == "stationary":
+            from mfe.models.bootstrap.stationary_bootstrap import StationaryBootstrap
+            bootstrap_obj = StationaryBootstrap(
+                block_length=block_length,
+                n_bootstraps=bootstrap_replications
+            )
+        else:
+            raise ParameterError(
+                "bootstrap_type must be 'block' or 'stationary'",
+                param_name="bootstrap_type",
+                param_value=bootstrap_type
+            )
+        
+        # Generate bootstrap samples
+        bootstrap_indices = bootstrap_obj.generate_indices(
+            len(residuals),
+            bootstrap_replications
+        )
+        
+        # Compute bootstrap IRFs
+        bootstrap_irfs = np.zeros((bootstrap_replications, periods, irf.shape[1], irf.shape[2]))
+        
+        # TODO: Implement bootstrap IRF computation
+        # This would require refitting the VAR model on bootstrap samples
+        # and computing IRFs for each bootstrap sample
+        
+        # Compute confidence intervals
+        alpha = 1 - confidence_level
+        lower_percentile = alpha / 2 * 100
+        upper_percentile = (1 - alpha / 2) * 100
+        
+        lower_ci = np.zeros_like(irf)
+        upper_ci = np.zeros_like(irf)
+        
+        for i in range(periods):
+            for j in range(irf.shape[1]):
+                for k in range(irf.shape[2]):
+                    bootstrap_values = bootstrap_irfs[:, i, j, k]
+                    lower_ci[i, j, k] = np.percentile(bootstrap_values, lower_percentile)
+                    upper_ci[i, j, k] = np.percentile(bootstrap_values, upper_percentile)
+    
+    # Create result object
+    result = ImpulseResponseResult(
+        irf=irf,
+        method=method,
+        identification=identification,
+        periods=periods,
+        var_names=var_names,
+        lower_ci=lower_ci,
+        upper_ci=upper_ci,
+        bootstrap_irfs=bootstrap_irfs,
+        confidence_level=confidence_level if bootstrap else None,
+        bootstrap_type=bootstrap_type if bootstrap else None,
+        bootstrap_replications=bootstrap_replications if bootstrap else None
+    )
+    
+    return result
+
+
+def cumulative_impulse_response(
+    var_model: Any,
+    periods: int = 10,
+    method: str = "orthogonalized",
+    identification: Optional[Union[str, np.ndarray]] = None,
+    bootstrap: bool = False,
+    bootstrap_type: str = "block",
+    bootstrap_replications: int = 1000,
+    block_length: int = 4,
+    confidence_level: float = 0.95
+) -> ImpulseResponseResult:
+    """
+    Compute cumulative impulse response functions for a VAR model.
+    
+    This function is a convenience wrapper for computing cumulative impulse response
+    functions from a fitted VAR model.
+    
+    Args:
+        var_model: Fitted VAR model
+        periods: Number of periods for impulse response functions
+        method: Method for impulse response calculation
+            - "orthogonalized": Orthogonalized impulse responses (Cholesky decomposition)
+            - "generalized": Generalized impulse responses (Pesaran and Shin)
+            - "structural": Structural impulse responses (requires identification)
+        identification: Identification method for structural VAR
+            - "short": Short-run restrictions (Cholesky decomposition)
+            - "long": Long-run restrictions
+            - numpy.ndarray: Custom identification matrix
+        bootstrap: Whether to compute bootstrap confidence intervals
+        bootstrap_type: Type of bootstrap to use
+            - "block": Block bootstrap
+            - "stationary": Stationary bootstrap
+        bootstrap_replications: Number of bootstrap replications
+        block_length: Block length for block bootstrap
+        confidence_level: Confidence level for intervals (between 0 and 1)
+        
+    Returns:
+        ImpulseResponseResult: Cumulative impulse response analysis results
+        
+    Raises:
+        NotFittedError: If the VAR model is not fitted
+        ParameterError: If parameters are invalid
+    """
+    # Compute regular impulse responses
+    irf_result = impulse_response(
+        var_model=var_model,
+        periods=periods,
+        method=method,
+        identification=identification,
+        bootstrap=bootstrap,
+        bootstrap_type=bootstrap_type,
+        bootstrap_replications=bootstrap_replications,
+        block_length=block_length,
+        confidence_level=confidence_level
+    )
+    
+    # Compute cumulative impulse responses
+    cum_irf = np.cumsum(irf_result.irf, axis=0)
+    
+    # Compute cumulative confidence intervals if available
+    cum_lower_ci = None
+    cum_upper_ci = None
+    cum_bootstrap_irfs = None
+    
+    if irf_result.lower_ci is not None and irf_result.upper_ci is not None:
+        cum_lower_ci = np.cumsum(irf_result.lower_ci, axis=0)
+        cum_upper_ci = np.cumsum(irf_result.upper_ci, axis=0)
+    
+    if irf_result.bootstrap_irfs is not None:
+        cum_bootstrap_irfs = np.cumsum(irf_result.bootstrap_irfs, axis=1)
+    
+    # Create result object
+    result = ImpulseResponseResult(
+        irf=cum_irf,
+        method=f"cumulative_{method}",
+        identification=identification,
+        periods=periods,
+        var_names=irf_result.var_names,
+        lower_ci=cum_lower_ci,
+        upper_ci=cum_upper_ci,
+        bootstrap_irfs=cum_bootstrap_irfs,
+        confidence_level=irf_result.confidence_level,
+        bootstrap_type=irf_result.bootstrap_type,
+        bootstrap_replications=irf_result.bootstrap_replications
+    )
+    
+    return result

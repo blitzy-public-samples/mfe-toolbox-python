@@ -1066,7 +1066,7 @@ def simulate_egarch_path(innovations, omega, alpha, gamma, beta, log_sigma2, ini
     return log_sigma2
 
 
-@jit(float64[:](float64[:], float64, float64, float64[:], float64), 
+@jit(float64[:](float64[:], float64, float64, float64, float64, float64[:], float64), 
      nopython=True, cache=True)
 def heavy_recursion(data, omega, beta, sigma2, backcast):
     """Compute HEAVY model conditional variances using Numba acceleration.

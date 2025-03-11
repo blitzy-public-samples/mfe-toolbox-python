@@ -42,6 +42,410 @@ T = TypeVar('T')  # Generic type
 F = TypeVar('F', bound=Callable[..., Any])  # Function type
 
 
+def validate_array(
+    array: Any,
+    array_name: str = "array",
+    allow_none: bool = False,
+    allow_nan: bool = False,
+    allow_inf: bool = False
+) -> np.ndarray:
+    """Validate that an input is a valid numpy array.
+
+    Args:
+        array: Array to validate
+        array_name: Name of the array for error messages
+        allow_none: Whether to allow None as a valid input
+        allow_nan: Whether to allow NaN values in the array
+        allow_inf: Whether to allow infinite values in the array
+
+    Returns:
+        np.ndarray: The validated array
+
+    Raises:
+        TypeError: If array is not a NumPy array
+        ValueError: If array contains NaN or infinite values when not allowed
+    """
+    if array is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{array_name} cannot be None")
+
+    if not isinstance(array, np.ndarray):
+        try:
+            array = np.asarray(array)
+        except Exception:
+            raise TypeError(f"{array_name} must be convertible to a NumPy array, got {type(array).__name__}")
+
+    if not allow_nan and np.isnan(array).any():
+        raise ValueError(f"{array_name} contains NaN values")
+
+    if not allow_inf and np.isinf(array).any():
+        raise ValueError(f"{array_name} contains infinite values")
+
+    return array
+
+
+def validate_dimensions(
+    array: np.ndarray,
+    expected_ndim: int,
+    array_name: str = "array",
+    allow_none: bool = False
+) -> np.ndarray:
+    """Validate that an array has the expected number of dimensions.
+
+    Args:
+        array: Array to validate
+        expected_ndim: Expected number of dimensions
+        array_name: Name of the array for error messages
+        allow_none: Whether to allow None as a valid input
+
+    Returns:
+        np.ndarray: The validated array
+
+    Raises:
+        TypeError: If array is not a NumPy array
+        DimensionError: If array has wrong number of dimensions
+    """
+    if array is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{array_name} cannot be None")
+
+    array = validate_array(array, array_name)
+    
+    if array.ndim != expected_ndim:
+        raise_dimension_error(
+            f"{array_name} has {array.ndim} dimensions, expected {expected_ndim}",
+            array_name=array_name,
+            expected_ndim=expected_ndim,
+            actual_ndim=array.ndim
+        )
+    
+    return array
+
+
+def validate_type(
+    value: Any,
+    expected_type: Union[Type, Tuple[Type, ...]],
+    param_name: str = "parameter",
+    allow_none: bool = False
+) -> Any:
+    """Validate that a value has the expected type.
+
+    Args:
+        value: Value to validate
+        expected_type: Expected type or tuple of types
+        param_name: Name of the parameter for error messages
+        allow_none: Whether to allow None as a valid input
+
+    Returns:
+        Any: The validated value
+
+    Raises:
+        TypeError: If value is not of the expected type
+    """
+    if value is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{param_name} cannot be None")
+
+    if not isinstance(value, expected_type):
+        if isinstance(expected_type, tuple):
+            type_names = " or ".join(t.__name__ for t in expected_type)
+            raise TypeError(f"{param_name} must be of type {type_names}, got {type(value).__name__}")
+        else:
+            raise TypeError(f"{param_name} must be of type {expected_type.__name__}, got {type(value).__name__}")
+    
+    return value
+
+
+def validate_positive(
+    value: Union[float, np.ndarray],
+    param_name: str = "parameter",
+    allow_none: bool = False,
+    tol: float = 1e-10
+) -> Union[float, np.ndarray]:
+    """Validate that a value is positive.
+
+    Args:
+        value: Value to validate
+        param_name: Name of the parameter for error messages
+        allow_none: Whether to allow None as a valid input
+        tol: Tolerance for considering a value positive
+
+    Returns:
+        Union[float, np.ndarray]: The validated value
+
+    Raises:
+        ValueError: If value is not positive
+    """
+    if value is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{param_name} cannot be None")
+
+    if isinstance(value, np.ndarray):
+        if np.any(value <= tol):
+            raise_numeric_error(
+                f"{param_name} contains non-positive values",
+                param_name=param_name,
+                constraint="positive"
+            )
+    elif value <= tol:
+        raise_numeric_error(
+            f"{param_name} must be positive, got {value}",
+            param_name=param_name,
+            constraint="positive",
+            value=value
+        )
+    
+    return value
+
+
+def validate_nonnegative(
+    value: Union[float, np.ndarray],
+    param_name: str = "parameter",
+    allow_none: bool = False,
+    tol: float = -1e-10
+) -> Union[float, np.ndarray]:
+    """Validate that a value is non-negative.
+
+    Args:
+        value: Value to validate
+        param_name: Name of the parameter for error messages
+        allow_none: Whether to allow None as a valid input
+        tol: Tolerance for considering a value non-negative
+
+    Returns:
+        Union[float, np.ndarray]: The validated value
+
+    Raises:
+        ValueError: If value is negative
+    """
+    if value is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{param_name} cannot be None")
+
+    if isinstance(value, np.ndarray):
+        if np.any(value < tol):
+            raise_numeric_error(
+                f"{param_name} contains negative values",
+                param_name=param_name,
+                constraint="non-negative"
+            )
+    elif value < tol:
+        raise_numeric_error(
+            f"{param_name} must be non-negative, got {value}",
+            param_name=param_name,
+            constraint="non-negative",
+            value=value
+        )
+    
+    return value
+
+
+def validate_in_range(
+    value: Union[float, np.ndarray],
+    lower_bound: Optional[float] = None,
+    upper_bound: Optional[float] = None,
+    param_name: str = "parameter",
+    allow_none: bool = False,
+    lower_inclusive: bool = True,
+    upper_inclusive: bool = True
+) -> Union[float, np.ndarray]:
+    """Validate that a value is within a specified range.
+
+    Args:
+        value: Value to validate
+        lower_bound: Lower bound of the range (None for no lower bound)
+        upper_bound: Upper bound of the range (None for no upper bound)
+        param_name: Name of the parameter for error messages
+        allow_none: Whether to allow None as a valid input
+        lower_inclusive: Whether the lower bound is inclusive
+        upper_inclusive: Whether the upper bound is inclusive
+
+    Returns:
+        Union[float, np.ndarray]: The validated value
+
+    Raises:
+        ValueError: If value is outside the specified range
+    """
+    if value is None:
+        if allow_none:
+            return None
+        raise TypeError(f"{param_name} cannot be None")
+
+    if isinstance(value, np.ndarray):
+        if lower_bound is not None:
+            if lower_inclusive:
+                if np.any(value < lower_bound):
+                    raise_numeric_error(
+                        f"{param_name} contains values below {lower_bound}",
+                        param_name=param_name,
+                        constraint=f">= {lower_bound}"
+                    )
+            else:
+                if np.any(value <= lower_bound):
+                    raise_numeric_error(
+                        f"{param_name} contains values below or equal to {lower_bound}",
+                        param_name=param_name,
+                        constraint=f"> {lower_bound}"
+                    )
+        
+        if upper_bound is not None:
+            if upper_inclusive:
+                if np.any(value > upper_bound):
+                    raise_numeric_error(
+                        f"{param_name} contains values above {upper_bound}",
+                        param_name=param_name,
+                        constraint=f"<= {upper_bound}"
+                    )
+            else:
+                if np.any(value >= upper_bound):
+                    raise_numeric_error(
+                        f"{param_name} contains values above or equal to {upper_bound}",
+                        param_name=param_name,
+                        constraint=f"< {upper_bound}"
+                    )
+    else:
+        if lower_bound is not None:
+            if lower_inclusive:
+                if value < lower_bound:
+                    raise_numeric_error(
+                        f"{param_name} must be >= {lower_bound}, got {value}",
+                        param_name=param_name,
+                        constraint=f">= {lower_bound}",
+                        value=value
+                    )
+            else:
+                if value <= lower_bound:
+                    raise_numeric_error(
+                        f"{param_name} must be > {lower_bound}, got {value}",
+                        param_name=param_name,
+                        constraint=f"> {lower_bound}",
+                        value=value
+                    )
+        
+        if upper_bound is not None:
+            if upper_inclusive:
+                if value > upper_bound:
+                    raise_numeric_error(
+                        f"{param_name} must be <= {upper_bound}, got {value}",
+                        param_name=param_name,
+                        constraint=f"<= {upper_bound}",
+                        value=value
+                    )
+            else:
+                if value >= upper_bound:
+                    raise_numeric_error(
+                        f"{param_name} must be < {upper_bound}, got {value}",
+                        param_name=param_name,
+                        constraint=f"< {upper_bound}",
+                        value=value
+                    )
+    
+    return value
+
+
+def validate_shape(
+    array: np.ndarray,
+    expected_shape: Union[Tuple[int, ...], List[Tuple[int, ...]]],
+    array_name: str = "array",
+    allow_none: bool = False
+) -> np.ndarray:
+    """Validate that an array has the expected shape.
+    
+    This is an alias for validate_array_shape for backward compatibility.
+
+    Args:
+        array: Array to validate
+        expected_shape: Expected shape or list of valid shapes
+        array_name: Name of the array for error messages
+        allow_none: Whether to allow None as a valid input
+
+    Returns:
+        np.ndarray: The validated array
+
+    Raises:
+        TypeError: If array is not a NumPy array
+        DimensionError: If array shape doesn't match expected shape
+    """
+    return validate_array_shape(array, expected_shape, array_name, allow_none)
+
+
+def check_stationarity(
+    ar_params: np.ndarray,
+    max_lag: Optional[int] = None,
+    param_name: str = "AR parameters",
+    tol: float = 1e-6
+) -> bool:
+    """Check if an autoregressive process is stationary.
+
+    Args:
+        ar_params: Autoregressive parameters (excluding the constant)
+        max_lag: Maximum lag to check (None for all lags)
+        param_name: Name of the parameter for error messages
+        tol: Tolerance for numerical stability
+
+    Returns:
+        bool: True if the process is stationary, False otherwise
+    """
+    if ar_params is None or len(ar_params) == 0:
+        return True
+    
+    ar_params = np.asarray(ar_params)
+    if max_lag is not None:
+        ar_params = ar_params[:max_lag]
+    
+    # For AR(1), just check if |phi| < 1
+    if len(ar_params) == 1:
+        return np.abs(ar_params[0]) < 1.0 - tol
+    
+    # For higher-order AR processes, check if all roots of the characteristic
+    # polynomial are outside the unit circle
+    ar_poly = np.r_[1, -ar_params]
+    roots = np.roots(ar_poly)
+    
+    return np.all(np.abs(roots) > 1.0 + tol)
+
+
+def check_invertibility(
+    ma_params: np.ndarray,
+    max_lag: Optional[int] = None,
+    param_name: str = "MA parameters",
+    tol: float = 1e-6
+) -> bool:
+    """Check if a moving average process is invertible.
+
+    Args:
+        ma_params: Moving average parameters
+        max_lag: Maximum lag to check (None for all lags)
+        param_name: Name of the parameter for error messages
+        tol: Tolerance for numerical stability
+
+    Returns:
+        bool: True if the process is invertible, False otherwise
+    """
+    if ma_params is None or len(ma_params) == 0:
+        return True
+    
+    ma_params = np.asarray(ma_params)
+    if max_lag is not None:
+        ma_params = ma_params[:max_lag]
+    
+    # For MA(1), just check if |theta| < 1
+    if len(ma_params) == 1:
+        return np.abs(ma_params[0]) < 1.0 - tol
+    
+    # For higher-order MA processes, check if all roots of the characteristic
+    # polynomial are outside the unit circle
+    ma_poly = np.r_[1, ma_params]
+    roots = np.roots(ma_poly)
+    
+    return np.all(np.abs(roots) > 1.0 + tol)
+
+
 def validate_array_shape(
     array: np.ndarray,
     expected_shape: Union[Tuple[int, ...], List[Tuple[int, ...]]],
@@ -963,17 +1367,19 @@ def validate_input_bounds(
     upper_bound: Optional[float] = None,
     lower_inclusive: bool = True,
     upper_inclusive: bool = True,
-    param_name: Optional[str] = None
+    param_name: Optional[str] = None,
+    allow_list: bool = False
 ) -> Callable[[F], F]:
-    """Decorator factory for validating numeric bounds on an input parameter.
+    """Decorator factory for validating parameter bounds.
 
     Args:
         param_index: Index of the parameter to validate
-        lower_bound: Lower bound, or None for no lower bound
-        upper_bound: Upper bound, or None for no upper bound
+        lower_bound: Lower bound for the parameter value
+        upper_bound: Upper bound for the parameter value
         lower_inclusive: Whether the lower bound is inclusive
         upper_inclusive: Whether the upper bound is inclusive
         param_name: Name of the parameter for error messages (defaults to parameter name)
+        allow_list: Whether to allow a list of values (each value will be validated)
 
     Returns:
         Callable: Decorator function
@@ -984,16 +1390,18 @@ def validate_input_bounds(
             # Get the parameter value
             if param_index < len(args):
                 value = args[param_index]
-                # Get parameter name if not provided
-                if param_name is None:
+                # Get parameter name for error messages
+                if param_name is not None:
+                    name = param_name
+                else:
+                    # Parameter might be in kwargs
                     sig = inspect.signature(func)
                     param_names = list(sig.parameters.keys())
                     if param_index < len(param_names):
                         name = param_names[param_index]
                     else:
-                        name = f"parameter_{param_index}"
-                else:
-                    name = param_name
+                        # Invalid parameter index
+                        return func(*args, **kwargs)
             else:
                 # Parameter might be in kwargs
                 sig = inspect.signature(func)
@@ -1010,7 +1418,15 @@ def validate_input_bounds(
                     return func(*args, **kwargs)
 
             # Validate the parameter
-            if isinstance(value, (int, float)):
+            if allow_list and isinstance(value, (list, tuple, np.ndarray)):
+                # Validate each value in the list
+                for val in value:
+                    if isinstance(val, (int, float)):
+                        validate_parameter_bounds(
+                            val, name, lower_bound, upper_bound,
+                            lower_inclusive, upper_inclusive
+                        )
+            elif isinstance(value, (int, float)):
                 validate_parameter_bounds(
                     value, name, lower_bound, upper_bound,
                     lower_inclusive, upper_inclusive

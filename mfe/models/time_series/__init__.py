@@ -96,7 +96,7 @@ def _check_dependencies() -> None:
                 continue
             
             pkg_version = imported.__version__
-            if pkg_version.split(".") < min_version.split(".")):
+            if pkg_version.split(".") < min_version.split("."):
                 outdated_packages.append((package, pkg_version, min_version))
         except ImportError:
             # This should never happen as the main package already checks required dependencies
@@ -111,7 +111,7 @@ def _check_dependencies() -> None:
                 continue
             
             pkg_version = imported.__version__
-            if pkg_version.split(".") < min_version.split(".")):
+            if pkg_version.split(".") < min_version.split("."):
                 outdated_packages.append((package, pkg_version, min_version))
         except ImportError:
             missing_optional.append(package)

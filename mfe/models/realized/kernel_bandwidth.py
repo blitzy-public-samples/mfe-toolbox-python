@@ -556,3 +556,8 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create aliases for backward compatibility
+optimal_bandwidth = compute_optimal_bandwidth
+asymptotic_optimal_bandwidth = compute_optimal_bandwidth_asymptotic
+improved_asymptotic_optimal_bandwidth = compute_optimal_bandwidth_adaptive

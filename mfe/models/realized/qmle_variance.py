@@ -34,6 +34,7 @@ from typing import (
     Any, Callable, Dict, List, Literal, Optional, Sequence, 
     Tuple, Type, TypeVar, Union, cast, overload
 )
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -119,7 +120,7 @@ class QMLEVarianceConfig(RealizedEstimatorConfig):
             raise ParameterError(f"initial_noise_method must be one of {valid_noise_methods}, got {self.initial_noise_method}")
 
 
-@dataclass
+@dataclass(init=False)
 class QMLEVarianceResult(RealizedEstimatorResult):
     """Result container for QMLE variance estimation.
     
@@ -144,6 +145,88 @@ class QMLEVarianceResult(RealizedEstimatorResult):
     convergence_status: Optional[bool] = None
     optimization_details: Optional[Dict[str, Any]] = None
     sparse_matrix_used: Optional[bool] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        realized_measure: np.ndarray,
+        prices: Optional[np.ndarray] = None,
+        times: Optional[np.ndarray] = None,
+        sampling_frequency: Optional[Union[str, float]] = None,
+        kernel_type: Optional[str] = None,
+        bandwidth: Optional[float] = None,
+        subsampling: bool = False,
+        noise_correction: bool = False,
+        annualization_factor: Optional[float] = None,
+        returns: Optional[np.ndarray] = None,
+        noise_variance: Optional[float] = None,
+        jump_threshold: Optional[float] = None,
+        jump_indicators: Optional[np.ndarray] = None,
+        computation_time: Optional[float] = None,
+        config: Optional[Dict[str, Any]] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        integrated_variance: Optional[float] = None,
+        log_likelihood: Optional[float] = None,
+        iterations: Optional[int] = None,
+        convergence_status: Optional[bool] = None,
+        optimization_details: Optional[Dict[str, Any]] = None,
+        sparse_matrix_used: Optional[bool] = None
+    ) -> None:
+        """Initialize the QMLE variance result.
+        
+        Args:
+            model_name: Name of the model
+            realized_measure: Computed realized measure
+            prices: High-frequency price data used for computation
+            times: Corresponding time points
+            sampling_frequency: Sampling frequency used for computation
+            kernel_type: Type of kernel used (for kernel-based estimators)
+            bandwidth: Bandwidth parameter (for kernel-based estimators)
+            subsampling: Whether subsampling was used
+            noise_correction: Whether noise correction was applied
+            annualization_factor: Factor used for annualization
+            returns: Returns computed from prices
+            noise_variance: Estimated noise variance
+            jump_threshold: Threshold used for jump detection
+            jump_indicators: Indicators of detected jumps
+            computation_time: Time taken for computation
+            config: Configuration used for estimation
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+            integrated_variance: Estimated integrated variance
+            log_likelihood: Log-likelihood value at the optimum
+            iterations: Number of iterations performed during optimization
+            convergence_status: Convergence status of the optimization
+            optimization_details: Detailed information about the optimization
+            sparse_matrix_used: Whether sparse matrix operations were used
+        """
+        super().__init__(
+            model_name=model_name,
+            realized_measure=realized_measure,
+            prices=prices,
+            times=times,
+            sampling_frequency=sampling_frequency,
+            kernel_type=kernel_type,
+            bandwidth=bandwidth,
+            subsampling=subsampling,
+            noise_correction=noise_correction,
+            annualization_factor=annualization_factor,
+            returns=returns,
+            noise_variance=noise_variance,
+            jump_threshold=jump_threshold,
+            jump_indicators=jump_indicators,
+            computation_time=computation_time,
+            config=config,
+            creation_time=creation_time,
+            metadata=metadata
+        )
+        self.integrated_variance = integrated_variance
+        self.log_likelihood = log_likelihood
+        self.iterations = iterations
+        self.convergence_status = convergence_status
+        self.optimization_details = optimization_details
+        self.sparse_matrix_used = sparse_matrix_used
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""
@@ -956,3 +1039,6 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create alias for backward compatibility
+QMLERealizedVariance = QMLEVarianceEstimator

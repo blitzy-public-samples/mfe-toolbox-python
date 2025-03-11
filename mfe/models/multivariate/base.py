@@ -1255,3 +1255,46 @@ class FactorModelBase(AbstractMultivariateVolatilityModel):
             NotImplementedError: If not implemented by subclass
         """
         raise NotImplementedError("_compute_factor_volatilities must be implemented by subclass")
+
+# Utility functions for covariance and correlation conversion
+def covariance_to_correlation(covariance: np.ndarray) -> np.ndarray:
+    """
+    Convert a covariance matrix to a correlation matrix.
+    
+    Args:
+        covariance: Covariance matrix (n x n)
+        
+    Returns:
+        Correlation matrix (n x n)
+        
+    Raises:
+        ValueError: If the covariance matrix is not positive definite
+    """
+    return cov2corr(covariance)
+
+def correlation_to_covariance(correlation: np.ndarray, std_devs: np.ndarray) -> np.ndarray:
+    """
+    Convert a correlation matrix to a covariance matrix.
+    
+    Args:
+        correlation: Correlation matrix (n x n)
+        std_devs: Standard deviations (n,)
+        
+    Returns:
+        Covariance matrix (n x n)
+        
+    Raises:
+        ValueError: If dimensions don't match
+    """
+    n = correlation.shape[0]
+    if std_devs.shape[0] != n:
+        raise ValueError(f"std_devs must have length {n}, got {std_devs.shape[0]}")
+    
+    # Create diagonal matrix of standard deviations
+    d = np.diag(std_devs)
+    
+    # Compute covariance matrix
+    return d @ correlation @ d
+
+# Create an alias for AbstractMultivariateVolatilityModel for backward compatibility
+MultivariateVolatilityModel = AbstractMultivariateVolatilityModel

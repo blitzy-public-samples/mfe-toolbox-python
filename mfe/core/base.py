@@ -1159,7 +1159,7 @@ class DistributionBase(abc.ABC):
     """
     
     def __init__(self, name: str = "Distribution"):
-        """Initialize the probability distribution.
+        """Initialize the probability distribution with a name.
         
         Args:
             name: A descriptive name for the distribution
@@ -1174,6 +1174,15 @@ class DistributionBase(abc.ABC):
             str: The distribution name
         """
         return self._name
+    
+    @name.setter
+    def name(self, value: str) -> None:
+        """Set the distribution name.
+        
+        Args:
+            value: The new distribution name
+        """
+        self._name = value
     
     @abc.abstractmethod
     def pdf(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
@@ -1274,3 +1283,7 @@ class DistributionBase(abc.ABC):
             str: A detailed string representation of the distribution
         """
         return f"{self.__class__.__name__}(name='{self._name}')"
+
+
+# Create an alias for backward compatibility
+BaseModel = ModelBase

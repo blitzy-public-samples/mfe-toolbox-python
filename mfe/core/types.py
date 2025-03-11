@@ -15,16 +15,18 @@ type safety throughout the toolbox.
 
 import asyncio
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum, auto, StrEnum
 from pathlib import Path
 from typing import (
     Any, Callable, Dict, Generic, List, Literal, NewType, Optional, Protocol,
-    Sequence, Set, Tuple, Type, TypeVar, Union, cast, overload, runtime_checkable
+    Sequence, Set, Tuple, Type, TypeVar, Union, cast, overload, runtime_checkable, Awaitable
 )
 
 import numpy as np
 import pandas as pd
+from numpy.typing import ArrayLike
 from scipy import stats
+from scipy.optimize import OptimizeResult
 
 # Type variables for generic programming
 T = TypeVar('T')  # Generic type
@@ -39,8 +41,13 @@ E = TypeVar('E', bound=Exception)  # Exception type
 # These provide more specific type information than np.ndarray alone
 Vector = np.ndarray  # 1D array
 Matrix = np.ndarray  # 2D array
+MatrixLike = np.ndarray  # Any array that can be interpreted as a matrix
 Tensor3D = np.ndarray  # 3D array
 Tensor4D = np.ndarray  # 4D array
+
+# Type aliases for arrays with specific dtypes
+FloatArray = np.ndarray  # Array of floating point values
+IntArray = np.ndarray  # Array of integer values
 
 # Specialized array types for specific use cases
 TimeSeriesData = Union[np.ndarray, pd.Series]  # Single time series
@@ -59,7 +66,7 @@ TimeSeries = Union[pd.Series, pd.DataFrame]
 TimeIndex = Union[pd.DatetimeIndex, np.ndarray, List[Union[pd.Timestamp, np.datetime64, float]]]
 
 # Distribution types
-DistributionType = Literal("normal", "t", "skewed_t", "ged")
+DistributionType = Literal["normal", "t", "skewed_t", "ged"]
 DistributionLike = Union[stats.rv_continuous, Callable[[np.ndarray], np.ndarray]]
 
 # Parameter types
@@ -69,9 +76,9 @@ ParameterTransform = Callable[[float], float]
 
 # Callback types for reporting progress and handling events
 ProgressCallback = Callable[[float, str], None]
-AsyncProgressCallback = Callable[[float, str], asyncio.coroutine]
+AsyncProgressCallback = Callable[[float, str], Awaitable[None]]
 EventCallback = Callable[[str, Dict[str, Any]], None]
-AsyncEventCallback = Callable[[str, Dict[str, Any]], asyncio.coroutine]
+AsyncEventCallback = Callable[[str, Dict[str, Any]], Awaitable[None]]
 
 # Model specification types
 ARMAOrder = Tuple[int, int]  # (p, q) for AR and MA orders
@@ -90,7 +97,7 @@ FilePath = Union[str, Path]
 DirectoryPath = Union[str, Path]
 
 # Optimization types
-OptimizationMethod = Literal("BFGS", "L-BFGS-B", "SLSQP", "Nelder-Mead", "Powell", "CG", "Newton-CG")
+OptimizationMethod = Literal["BFGS", "L-BFGS-B", "SLSQP", "Nelder-Mead", "Powell", "CG", "Newton-CG"]
 OptimizationResult = Dict[str, Any]
 ObjectiveFunction = Callable[[np.ndarray], float]
 GradientFunction = Callable[[np.ndarray], np.ndarray]
@@ -347,7 +354,7 @@ class HasPDF(Protocol):
 
 # Type aliases for common function signatures
 FitFunction = Callable[[D], R]
-AsyncFitFunction = Callable[[D], asyncio.coroutine]
+AsyncFitFunction = Callable[[D], Awaitable[R]]
 PredictFunction = Callable[[np.ndarray], np.ndarray]
 ForecastFunction = Callable[[int], Tuple[np.ndarray, np.ndarray, np.ndarray]]
 SimulateFunction = Callable[[int], np.ndarray]
@@ -368,7 +375,7 @@ DataContainer = Union[np.ndarray, pd.Series, pd.DataFrame, Tuple[np.ndarray, ...
 # Type aliases for high-frequency data
 HighFrequencyData = Tuple[np.ndarray, np.ndarray]  # (prices, times)
 RealizedMeasure = np.ndarray  # Realized volatility measure
-SamplingScheme = Literal("calendar", "business", "tick", "fixed")
+SamplingScheme = Literal["calendar", "business", "tick", "fixed"]
 
 # Type aliases for bootstrap methods
 BootstrapIndices = np.ndarray  # Bootstrap indices (n_bootstraps x data_length)
@@ -388,8 +395,8 @@ UIUpdateFunction = Callable[[Any], None]
 # Type aliases for asynchronous operations
 AsyncTask = asyncio.Task
 AsyncResult = asyncio.Future
-AsyncCallback = Callable[[], asyncio.coroutine]
-AsyncEventHandler = Callable[[Any], asyncio.coroutine]
+AsyncCallback = Callable[[], Awaitable[None]]
+AsyncEventHandler = Callable[[Any], Awaitable[None]]
 
 # Forward references for circular dependencies
 # These are used when type hints reference classes that are defined later
@@ -398,10 +405,9 @@ ModelResult = Any  # Will be defined in results.py
 
 # Type aliases for error handling
 ErrorHandler = Callable[[Exception], None]
-AsyncErrorHandler = Callable[[Exception], asyncio.coroutine]
+AsyncErrorHandler = Callable[[Exception], Awaitable[None]]
 ValidationError = Union[ValueError, TypeError]
 OptimizationError = Exception
-NumericalError = Exception
 
 # Type aliases for file operations
 FileReader = Callable[[FilePath], Any]
@@ -416,7 +422,7 @@ ConfigLoader = Callable[[ConfigPath], ConfigDict]
 ConfigSaver = Callable[[ConfigDict, ConfigPath], None]
 
 # Type aliases for logging
-LogLevel = Literal("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFunction = Callable[[str], None]
 LogHandler = Callable[[str, LogLevel], None]
 
@@ -444,3 +450,18 @@ ParallelReduce = Callable[[Callable, List[Any], Any], Any]
 # Type aliases for model selection
 ModelSelectionCriterion = Callable[[float, int, int], float]
 ModelComparisonFunction = Callable[[List[ModelResults]], List[int]]
+
+# Model type enum
+class ModelType(StrEnum):
+    """Enumeration of model types."""
+    TIME_SERIES = "time_series"
+    VOLATILITY = "volatility"
+    MULTIVARIATE_VOLATILITY = "multivariate_volatility"
+    DISTRIBUTION = "distribution"
+    REGRESSION = "regression"
+    CLASSIFICATION = "classification"
+    CLUSTERING = "clustering"
+    DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
+    NEURAL_NETWORK = "neural_network"
+    ENSEMBLE = "ensemble"
+    OTHER = "other"

@@ -855,3 +855,6 @@ def optimal_subsample_factor(
                          f"Supported methods are 'variance', 'autocorr', 'noise'.")
     
     return optimal_factor
+
+# Create alias for backward compatibility
+subsample = subsample_returns

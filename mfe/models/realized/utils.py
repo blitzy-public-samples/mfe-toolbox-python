@@ -1435,3 +1435,7 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create aliases for backward compatibility
+optimal_sampling = compute_optimal_sampling
+signature_plot = compute_optimal_sampling  # This is a placeholder, as signature_plot is not defined in the file

@@ -22,6 +22,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -99,7 +100,7 @@ class RealizedCovarianceConfig(RealizedEstimatorConfig):
             )
 
 
-@dataclass
+@dataclass(init=False)
 class RealizedCovarianceResult(RealizedEstimatorResult):
     """Result container for realized covariance estimators.
     
@@ -120,6 +121,86 @@ class RealizedCovarianceResult(RealizedEstimatorResult):
     is_psd: Optional[bool] = None
     psd_adjustment: Optional[str] = None
     synchronization_info: Optional[Dict[str, Any]] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        realized_measure: np.ndarray,
+        prices: Optional[np.ndarray] = None,
+        times: Optional[np.ndarray] = None,
+        sampling_frequency: Optional[Union[str, float]] = None,
+        kernel_type: Optional[str] = None,
+        bandwidth: Optional[float] = None,
+        subsampling: bool = False,
+        noise_correction: bool = False,
+        annualization_factor: Optional[float] = None,
+        returns: Optional[np.ndarray] = None,
+        noise_variance: Optional[float] = None,
+        jump_threshold: Optional[float] = None,
+        jump_indicators: Optional[np.ndarray] = None,
+        computation_time: Optional[float] = None,
+        config: Optional[Dict[str, Any]] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        correlation_matrix: Optional[np.ndarray] = None,
+        eigenvalues: Optional[np.ndarray] = None,
+        is_psd: Optional[bool] = None,
+        psd_adjustment: Optional[str] = None,
+        synchronization_info: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize the realized covariance result.
+        
+        Args:
+            model_name: Name of the model
+            realized_measure: Computed realized measure
+            prices: High-frequency price data used for computation
+            times: Corresponding time points
+            sampling_frequency: Sampling frequency used for computation
+            kernel_type: Type of kernel used (for kernel-based estimators)
+            bandwidth: Bandwidth parameter (for kernel-based estimators)
+            subsampling: Whether subsampling was used
+            noise_correction: Whether noise correction was applied
+            annualization_factor: Factor used for annualization
+            returns: Returns computed from prices
+            noise_variance: Estimated noise variance
+            jump_threshold: Threshold used for jump detection
+            jump_indicators: Indicators of detected jumps
+            computation_time: Time taken for computation (in seconds)
+            config: Configuration used for estimation
+            creation_time: Timestamp when the result was created
+            metadata: Additional metadata about the result
+            correlation_matrix: Correlation matrix derived from the realized covariance
+            eigenvalues: Eigenvalues of the realized covariance matrix
+            is_psd: Whether the realized covariance matrix is positive semi-definite
+            psd_adjustment: Adjustment made to ensure positive semi-definiteness
+            synchronization_info: Information about data synchronization
+        """
+        super().__init__(
+            model_name=model_name,
+            realized_measure=realized_measure,
+            prices=prices,
+            times=times,
+            sampling_frequency=sampling_frequency,
+            kernel_type=kernel_type,
+            bandwidth=bandwidth,
+            subsampling=subsampling,
+            noise_correction=noise_correction,
+            annualization_factor=annualization_factor,
+            returns=returns,
+            noise_variance=noise_variance,
+            jump_threshold=jump_threshold,
+            jump_indicators=jump_indicators,
+            computation_time=computation_time,
+            config=config,
+            creation_time=creation_time,
+            metadata=metadata
+        )
+        
+        self.correlation_matrix = correlation_matrix
+        self.eigenvalues = eigenvalues
+        self.is_psd = is_psd
+        self.psd_adjustment = psd_adjustment
+        self.synchronization_info = synchronization_info
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""

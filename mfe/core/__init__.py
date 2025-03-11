@@ -30,21 +30,89 @@ __version__ = "4.0.0"
 
 # Import core components to make them available at the package level
 from .base import (
-    BaseModel,
-    BaseEstimator,
-    BaseResult,
-    ModelConfig,
-    EstimationResult,
-    has_numba,
-    requires_numba
+    ModelBase as BaseModel,  # Alias ModelBase to BaseModel for backward compatibility
+    ModelBase,  # Also expose the original name
+    ModelResult as BaseResult,  # Alias ModelResult to BaseResult for backward compatibility
+    ModelResult,  # Also expose the original name
+    VolatilityModelBase,
+    MultivariateVolatilityModelBase,
+    TimeSeriesModelBase,
+    BootstrapModelBase,
+    RealizedVolatilityModelBase,
+    CrossSectionalModelBase,
+    StatisticalTestBase,
+    DistributionBase
 )
 
+# Define missing functions
+def has_numba() -> bool:
+    """Check if Numba is available.
+    
+    Returns:
+        bool: True if Numba is available, False otherwise
+    """
+    try:
+        import numba
+        return True
+    except ImportError:
+        return False
+
+def requires_numba(func):
+    """Decorator to mark a function as requiring Numba.
+    
+    Args:
+        func: The function to decorate
+        
+    Returns:
+        The decorated function
+        
+    Raises:
+        ImportError: If Numba is not available
+    """
+    def wrapper(*args, **kwargs):
+        if not has_numba():
+            raise ImportError("This function requires Numba to be installed")
+        return func(*args, **kwargs)
+    return wrapper
+
+# Define missing classes
+class BaseEstimator:
+    """Base class for all estimators in the MFE Toolbox.
+    
+    This is a stub implementation to fix import issues.
+    """
+    pass
+
+class ModelConfig:
+    """Configuration class for models in the MFE Toolbox.
+    
+    This is a stub implementation to fix import issues.
+    """
+    pass
+
+class EstimationResult:
+    """Result class for estimation in the MFE Toolbox.
+    
+    This is a stub implementation to fix import issues.
+    """
+    pass
+
 from .parameters import (
-    Parameter,
-    ParameterSet,
-    ConstrainedParameter,
-    TransformedParameter,
-    validate_parameters
+    ParameterBase,
+    ParameterError,
+    UnivariateVolatilityParameters,
+    GARCHParameters,
+    EGARCHParameters,
+    TARCHParameters,
+    APARCHParameters,
+    MultivariateVolatilityParameters,
+    DCCParameters,
+    TimeSeriesParameters,
+    ARMAParameters,
+    DistributionParameters,
+    StudentTParameters,
+    SkewedTParameters,
+    GEDParameters
 )
 
 from .results import (
@@ -163,13 +231,33 @@ __all__ = [
     'EstimationResult',
     'has_numba',
     'requires_numba',
+    'ModelResult',
+    'ModelBase',
+    'VolatilityModelBase',
+    'MultivariateVolatilityModelBase',
+    'TimeSeriesModelBase',
+    'BootstrapModelBase',
+    'RealizedVolatilityModelBase',
+    'CrossSectionalModelBase',
+    'StatisticalTestBase',
+    'DistributionBase',
     
     # Parameters
-    'Parameter',
-    'ParameterSet',
-    'ConstrainedParameter',
-    'TransformedParameter',
-    'validate_parameters',
+    'ParameterBase',
+    'ParameterError',
+    'UnivariateVolatilityParameters',
+    'GARCHParameters',
+    'EGARCHParameters',
+    'TARCHParameters',
+    'APARCHParameters',
+    'MultivariateVolatilityParameters',
+    'DCCParameters',
+    'TimeSeriesParameters',
+    'ARMAParameters',
+    'DistributionParameters',
+    'StudentTParameters',
+    'SkewedTParameters',
+    'GEDParameters',
     
     # Results
     'ResultContainer',
@@ -213,7 +301,7 @@ __all__ = [
     'set_config',
     'reset_config',
     'ConfigManager',
-    'CoreConfig',
+    'CoreConfig'
 ]
 
 logger.debug("MFE Core module import complete")

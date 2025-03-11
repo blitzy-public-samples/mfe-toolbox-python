@@ -40,10 +40,10 @@ try:
     from .garch import GARCH
     from .egarch import EGARCH
     from .tarch import TARCH
-    from .agarch import AGARCH
-    from .aparch import APARCH
+    from .agarch import AGARCHModel as AGARCH
+    from .aparch import APARCHModel as APARCH
     from .figarch import FIGARCH
-    from .heavy import HEAVY
+    from .heavy import HEAVYModel as HEAVY
     from .igarch import IGARCH
 except ImportError as e:
     logger.error(f"Error importing univariate volatility models: {e}")

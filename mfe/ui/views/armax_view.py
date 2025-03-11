@@ -35,7 +35,7 @@ from PyQt6.QtGui import (
 
 # Matplotlib integration
 import matplotlib
-matplotlib.use('Qt5Agg')  # Use Qt5Agg backend for matplotlib
+matplotlib.use('qt5agg')  # Use qt5agg backend for matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure

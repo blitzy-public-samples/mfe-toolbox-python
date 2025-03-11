@@ -724,7 +724,7 @@ def composite_loglikelihood(data: np.ndarray,
     return cl.loglikelihood(data, covariance_fn, **kwargs)
 
 
-def composite_loglikelihood_async(data: np.ndarray, 
+async def composite_loglikelihood_async(data: np.ndarray, 
                                       covariance_fn: Callable[[np.ndarray], np.ndarray],
                                       block_size: int = 2,
                                       overlap: float = 0.0,
@@ -733,24 +733,20 @@ def composite_loglikelihood_async(data: np.ndarray,
                                       **kwargs: Any) -> float:
     """Asynchronously compute composite log-likelihood for multivariate data.
     
-    This function provides a convenient functional interface to asynchronously
-    compute composite log-likelihood for multivariate data.
+    This function provides an asynchronous interface to the composite log-likelihood
+    computation, allowing for non-blocking execution in UI contexts.
     
     Args:
-        data: Data matrix (T×K) where T is the number of observations and K is the dimension
-        covariance_fn: Function that takes indices and returns covariance matrix
-        block_size: Size of blocks for composite likelihood (default: 2)
-        overlap: Overlap between blocks (default: 0.0)
+        data: Multivariate data (T x dimension)
+        covariance_fn: Function to compute covariance matrix for a subset of variables
+        block_size: Size of blocks for composite likelihood
+        overlap: Overlap between blocks (between 0 and 1)
         weights: Optional weights for different blocks
-        progress_callback: Optional callback function for reporting progress
-        **kwargs: Additional keyword arguments for the covariance function
-        
+        progress_callback: Optional callback for reporting progress
+        **kwargs: Additional keyword arguments for covariance function
+    
     Returns:
         float: Composite log-likelihood value
-        
-    Raises:
-        ValueError: If parameters or data dimensions are invalid
-        NumericError: If numerical issues occur during computation
     """
     # Create CompositeLikelihood object
     params = CompositeLikelihoodParams(block_size=block_size, overlap=overlap, weights=weights)
@@ -965,3 +961,8 @@ def mvn_loglikelihood_with_mean(data: np.ndarray,
     
     # Compute log-likelihood using centered data
     return mvn_loglikelihood(centered_data, cov, **kwargs)
+
+
+# Create aliases for backward compatibility
+PairwiseCompositeLikelihood = CompositeLikelihood
+IndependentCompositeLikelihood = CompositeLikelihood

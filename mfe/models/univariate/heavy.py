@@ -1416,6 +1416,26 @@ class HEAVYModel(VolatilityModel):
             result = self.forecast(
                 steps, 
                 data, 
-                method, 
-                n_simulations, 
-                random_state, 
+                method=method, 
+                n_simulations=n_simulations, 
+                random_state=random_state,
+                distribution=distribution,
+                distribution_params=distribution_params,
+                **kwargs
+            )
+            return result
+        
+        # Run the forecast method in a separate thread
+        try:
+            result = await loop.run_in_executor(None, forecast_with_progress)
+            
+            # Report completion
+            if progress_callback:
+                await progress_callback(1.0, "HEAVY model forecasting complete.")
+            
+            return result
+        except Exception as e:
+            # Report error
+            if progress_callback:
+                await progress_callback(1.0, f"Error: {str(e)}")
+            raise

@@ -163,12 +163,12 @@ class TestResult:
     additional_info: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Set the conclusion if not provided."""
+        """Set default values for test attributes."""
         if self.conclusion is None:
             if self.p_value < self.significance_level:
-                self.conclusion = f"Reject null hypothesis at {self.significance_level:.2f} significance level"
+                self.conclusion = f"reject null hypothesis at {self.significance_level} significance level"
             else:
-                self.conclusion = f"Fail to reject null hypothesis at {self.significance_level:.2f} significance level"
+                self.conclusion = f"fail to reject null hypothesis at {self.significance_level} significance level"
 
     def __str__(self) -> str:
         """Generate a string representation of the test result.
@@ -770,11 +770,26 @@ def ljung_box(
 
     for lag in range(1, lags + 1):
         # Calculate Ljung-Box statistic for this lag
-        lb_stat, lb_pval = sm.stats.acorr_ljungbox(
+        lb_result = sm.stats.acorr_ljungbox(
             residuals, lags=[lag], return_df=True, model_df=df
         )
-        lb_statistics[lag - 1] = lb_stat.iloc[0]
-        lb_pvalues[lag - 1] = lb_pval.iloc[0]
+        
+        # Handle different return types from statsmodels
+        if isinstance(lb_result, tuple):
+            lb_stat, lb_pval = lb_result
+            if hasattr(lb_stat, 'iloc'):
+                lb_statistics[lag - 1] = lb_stat.iloc[0]
+            else:
+                lb_statistics[lag - 1] = lb_stat[0]
+                
+            if hasattr(lb_pval, 'iloc'):
+                lb_pvalues[lag - 1] = lb_pval.iloc[0]
+            else:
+                lb_pvalues[lag - 1] = lb_pval[0]
+        else:
+            # In newer statsmodels versions, it returns a DataFrame
+            lb_statistics[lag - 1] = lb_result['lb_stat'].iloc[0]
+            lb_pvalues[lag - 1] = lb_result['lb_pvalue'].iloc[0]
 
     # Use the statistic for the maximum lag as the overall test statistic
     test_statistic = lb_statistics[-1]
@@ -946,47 +961,36 @@ def durbin_watson(
     )
 
 
-def breusch_godfrey(
-    residuals: Union[np.ndarray, pd.Series],
-    X: Optional[Union[np.ndarray, pd.DataFrame]] = None,
-    lags: int = 1,
-    significance_level: float = 0.05
-) -> BreuschGodfreyResult:
+def breusch_godfrey(residuals: Union[np.ndarray, pd.Series], 
+                   X: Optional[np.ndarray] = None,
+                   lags: int = 1,
+                   significance_level: float = 0.05) -> BreuschGodfreyResult:
     """Perform Breusch-Godfrey test for serial correlation in residuals.
 
-    This function performs the Breusch-Godfrey test for serial correlation in residuals,
-    which tests the null hypothesis of no serial correlation against the alternative
-    of serial correlation up to a specified lag.
+    This test checks for autocorrelation in the residuals of a linear regression
+    model. The null hypothesis is that there is no serial correlation up to the
+    specified lag order.
 
     Args:
-        residuals: Residuals to test
-        X: Design matrix (optional, if not provided, a constant term is used)
+        residuals: Residuals from a time series model
+        X: Design matrix (optional, defaults to a constant)
         lags: Number of lags to include in the test
         significance_level: Significance level for the test
 
     Returns:
-        BreuschGodfreyResult: Object containing the test results
+        BreuschGodfreyResult: Test results including test statistic and p-value
 
     Raises:
-        ValueError: If residuals contain NaN or infinite values, or if lags is invalid
-
-    Examples:
-        >>> import numpy as np
-        >>> from mfe.models.time_series.diagnostics import breusch_godfrey
-        >>> np.random.seed(42)
-        >>> residuals = np.random.normal(0, 1, 100)
-        >>> result = breusch_godfrey(residuals, lags=2)
-        >>> print(f"Test statistic: {result.test_statistic:.4f}, p-value: {result.p_value:.4f}")
-        Test statistic: 0.1234, p-value: 0.9402
+        ValueError: If inputs are invalid
     """
-    # Convert to numpy array if needed
+    # Convert to numpy array
     if isinstance(residuals, pd.Series):
         residuals = residuals.values
 
-    if isinstance(X, pd.DataFrame):
-        X = X.values
-
     # Validate inputs
+    if residuals.ndim != 1:
+        raise ValueError("Residuals must be a 1-dimensional array")
+
     if not np.isfinite(residuals).all():
         raise ValueError("Residuals contain NaN or infinite values")
 
@@ -1007,12 +1011,48 @@ def breusch_godfrey(
     if X.shape[0] != nobs:
         raise ValueError(f"Number of rows in X ({X.shape[0]}) must match number of observations ({nobs})")
 
-    # Perform Breusch-Godfrey test using statsmodels
-    bg_test = smd.acorr_breusch_godfrey(residuals, X, nlags=lags)
-
-    # Extract test statistic and p-value
-    test_statistic = bg_test[0]
-    p_value = bg_test[1]
+    # Implement Breusch-Godfrey test directly
+    # Step 1: Run the auxiliary regression
+    # Create lagged residuals
+    Z = np.zeros((nobs, lags))
+    for i in range(lags):
+        Z[i+1:, i] = residuals[:nobs-i-1]
+    
+    # Combine X and lagged residuals
+    X_full = np.column_stack((X, Z))
+    
+    # Drop rows with NaN values (first 'lags' rows)
+    X_full = X_full[lags:, :]
+    resid_subset = residuals[lags:]
+    
+    # Run the auxiliary regression
+    # resid_subset = X_full * beta + error
+    X_full_t = X_full.T
+    try:
+        # Use least squares to estimate beta
+        beta = np.linalg.solve(X_full_t @ X_full, X_full_t @ resid_subset)
+    except np.linalg.LinAlgError:
+        # Use pseudo-inverse if X_full is not full rank
+        beta = np.linalg.pinv(X_full_t @ X_full) @ X_full_t @ resid_subset
+    
+    # Calculate R-squared from the auxiliary regression
+    fitted = X_full @ beta
+    ssr = np.sum((resid_subset - fitted) ** 2)
+    sst = np.sum((resid_subset - np.mean(resid_subset)) ** 2)
+    r_squared = 1 - (ssr / sst)
+    
+    # Calculate test statistic: (n - lags) * R^2
+    n_effective = nobs - lags
+    test_statistic = n_effective * r_squared
+    
+    # Calculate p-value using chi-squared distribution with 'lags' degrees of freedom
+    p_value = 1 - stats.chi2.cdf(test_statistic, lags)
+    
+    # Create conclusion
+    if p_value > significance_level:
+        conclusion = f"fail to reject null hypothesis at {significance_level} significance level"
+    else:
+        conclusion = f"reject null hypothesis at {significance_level} significance level"
 
     # Calculate critical values
     critical_values = {
@@ -1021,18 +1061,20 @@ def breusch_godfrey(
         "10%": stats.chi2.ppf(0.90, lags)
     }
 
-    # Create and return result object
-    return BreuschGodfreyResult(
+    # Create result object
+    result = BreuschGodfreyResult(
         test_name="Breusch-Godfrey",
         test_statistic=test_statistic,
         p_value=p_value,
         critical_values=critical_values,
-        null_hypothesis="No serial correlation in residuals",
-        alternative_hypothesis="Serial correlation present in residuals",
         significance_level=significance_level,
         lags=lags,
-        nobs=nobs
+        nobs=nobs,
+        null_hypothesis="No serial correlation up to lag order",
+        alternative_hypothesis="Serial correlation present up to lag order"
     )
+
+    return result
 
 
 def arch_test(
@@ -1099,5 +1141,242 @@ def arch_test(
     # Create and return result object
     return ARCHTestResult(
         test_name="ARCH",
-        test_statistic=test_statistic
+        test_statistic=test_statistic,
+        p_value=p_value,
+        critical_values=critical_values,
+        lags=lags,
+        nobs=nobs,
+        significance_level=significance_level
     )
+
+
+def ljung_box_test(
+    residuals: Union[np.ndarray, pd.Series],
+    lags: Optional[int] = None,
+    df: int = 0,
+    significance_level: float = 0.05
+) -> LjungBoxResult:
+    """Ljung-Box test for autocorrelation in residuals.
+    
+    This function implements the Ljung-Box test, which tests for the presence
+    of autocorrelation in a time series up to a specified lag.
+    
+    Args:
+        residuals: Residuals from a time series model
+        lags: Number of lags to include in the test. If None, uses min(10, n//5)
+        df: Degrees of freedom (number of parameters in the model)
+        significance_level: Significance level for the test
+    
+    Returns:
+        LjungBoxResult: Test results including test statistic and p-value
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Convert to numpy array
+    if isinstance(residuals, pd.Series):
+        residuals = residuals.values
+    
+    # Validate inputs
+    if residuals.ndim != 1:
+        raise ValueError("Residuals must be a 1-dimensional array")
+    
+    n = len(residuals)
+    
+    # Set default lags if not provided
+    if lags is None:
+        lags = min(10, n // 5)
+    
+    # Validate lags
+    if lags <= 0:
+        raise ValueError("Number of lags must be positive")
+    
+    if lags >= n:
+        raise ValueError(f"Number of lags ({lags}) must be less than the number of observations ({n})")
+    
+    # Validate df
+    if df < 0:
+        raise ValueError("Degrees of freedom must be non-negative")
+    
+    if df >= lags:
+        raise ValueError(f"Degrees of freedom ({df}) must be less than the number of lags ({lags})")
+    
+    # Compute test statistic using numba-accelerated function
+    from mfe.models.time_series._numba_core import ljung_box_test as _ljung_box_numba
+    
+    q_stat, adjusted_df = _ljung_box_numba(residuals, lags, df)
+    
+    # Compute p-value using chi-squared distribution
+    p_value = 1 - stats.chi2.cdf(q_stat, adjusted_df)
+    
+    # Compute critical values
+    critical_values = {
+        "1%": stats.chi2.ppf(0.99, adjusted_df),
+        "5%": stats.chi2.ppf(0.95, adjusted_df),
+        "10%": stats.chi2.ppf(0.90, adjusted_df)
+    }
+    
+    # Create result object
+    result = LjungBoxResult(
+        test_name="Ljung-Box",
+        test_statistic=q_stat,
+        p_value=p_value,
+        critical_values=critical_values,
+        significance_level=significance_level,
+        lags=lags,
+        df=df
+    )
+    
+    return result
+
+
+def jarque_bera_test(
+    residuals: Union[np.ndarray, pd.Series],
+    significance_level: float = 0.05
+) -> JarqueBeraResult:
+    """Jarque-Bera test for normality of residuals.
+    
+    This function implements the Jarque-Bera test, which tests for the normality
+    of a time series based on its skewness and kurtosis.
+    
+    Args:
+        residuals: Residuals from a time series model
+        significance_level: Significance level for the test
+    
+    Returns:
+        JarqueBeraResult: Test results including test statistic, p-value, skewness, and kurtosis
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Convert to numpy array
+    if isinstance(residuals, pd.Series):
+        residuals = residuals.values
+    
+    # Validate inputs
+    if residuals.ndim != 1:
+        raise ValueError("Residuals must be a 1-dimensional array")
+    
+    if len(residuals) < 3:
+        raise ValueError("At least 3 observations are required for the Jarque-Bera test")
+    
+    # Check for NaN or infinite values
+    if np.isnan(residuals).any() or np.isinf(residuals).any():
+        raise ValueError("Residuals contain NaN or infinite values")
+    
+    # Compute test statistic and p-value
+    jb_stat, p_value = stats.jarque_bera(residuals)
+    
+    # Compute skewness and kurtosis
+    skewness = stats.skew(residuals)
+    kurtosis = stats.kurtosis(residuals, fisher=True)  # Fisher's definition (excess kurtosis)
+    
+    # Compute critical values (approximated using chi-squared distribution with 2 df)
+    critical_values = {
+        "1%": stats.chi2.ppf(0.99, 2),
+        "5%": stats.chi2.ppf(0.95, 2),
+        "10%": stats.chi2.ppf(0.90, 2)
+    }
+    
+    # Create result object
+    result = JarqueBeraResult(
+        test_name="Jarque-Bera",
+        test_statistic=jb_stat,
+        p_value=p_value,
+        critical_values=critical_values,
+        significance_level=significance_level,
+        skewness=skewness,
+        kurtosis=kurtosis
+    )
+    
+    return result
+
+
+def residual_diagnostics(
+    residuals: Union[np.ndarray, pd.Series],
+    lags: Optional[int] = None,
+    significance_level: float = 0.05,
+    model_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Perform comprehensive diagnostics on model residuals.
+    
+    This function runs a battery of diagnostic tests on model residuals to assess
+    model adequacy, including tests for autocorrelation, normality, and heteroskedasticity.
+    
+    Args:
+        residuals: Residuals from a time series model
+        lags: Number of lags to use for autocorrelation tests. If None, uses min(10, n//5)
+        significance_level: Significance level for the tests
+        model_name: Name of the model (optional)
+    
+    Returns:
+        Dict[str, Any]: Dictionary of test results
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Convert to numpy array
+    if isinstance(residuals, pd.Series):
+        residuals = residuals.values
+    
+    # Validate inputs
+    if residuals.ndim != 1:
+        raise ValueError("Residuals must be a 1-dimensional array")
+    
+    n = len(residuals)
+    
+    # Set default lags if not provided
+    if lags is None:
+        lags = min(10, n // 5)
+    
+    # Run diagnostic tests
+    results = {}
+    
+    # Ljung-Box test for autocorrelation
+    try:
+        lb_result = ljung_box_test(residuals, lags=lags, significance_level=significance_level)
+        results["ljung_box"] = lb_result
+    except Exception as e:
+        logger.warning(f"Ljung-Box test failed: {e}")
+        results["ljung_box"] = None
+    
+    # Jarque-Bera test for normality
+    try:
+        jb_result = jarque_bera_test(residuals, significance_level=significance_level)
+        results["jarque_bera"] = jb_result
+    except Exception as e:
+        logger.warning(f"Jarque-Bera test failed: {e}")
+        results["jarque_bera"] = None
+    
+    # ARCH test for heteroskedasticity
+    try:
+        arch_result = arch_test(residuals, lags=lags, significance_level=significance_level)
+        results["arch"] = arch_result
+    except Exception as e:
+        logger.warning(f"ARCH test failed: {e}")
+        results["arch"] = None
+    
+    # Durbin-Watson test for autocorrelation
+    try:
+        dw_result = durbin_watson(residuals, significance_level=significance_level)
+        results["durbin_watson"] = dw_result
+    except Exception as e:
+        logger.warning(f"Durbin-Watson test failed: {e}")
+        results["durbin_watson"] = None
+    
+    # Compute descriptive statistics
+    results["descriptive_stats"] = {
+        "mean": np.mean(residuals),
+        "std": np.std(residuals, ddof=1),
+        "min": np.min(residuals),
+        "max": np.max(residuals),
+        "skewness": stats.skew(residuals),
+        "kurtosis": stats.kurtosis(residuals, fisher=True),
+        "nobs": n
+    }
+    
+    # Add model name if provided
+    if model_name is not None:
+        results["model_name"] = model_name
+    
+    return results

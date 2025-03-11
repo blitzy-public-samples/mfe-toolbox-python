@@ -2571,3 +2571,6 @@ class StructuralVARModel(VARModel):
             summary += structural_info
         
         return summary
+
+# Create alias for backward compatibility
+VAR = VARModel

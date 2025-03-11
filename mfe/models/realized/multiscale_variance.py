@@ -22,13 +22,14 @@ import logging
 import warnings
 from dataclasses import dataclass, field
 from typing import (
-    Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, cast
+    Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, cast, Callable
 )
 
 import numpy as np
 import pandas as pd
 from scipy import stats, optimize
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 from ...core.parameters import ParameterBase, ParameterError, validate_positive, validate_non_negative
 from ...core.exceptions import DimensionError, NumericError
@@ -123,7 +124,7 @@ class MultiscaleVarianceConfig(RealizedEstimatorConfig):
             validate_non_negative(self.noise_variance, "noise_variance")
 
 
-@dataclass
+@dataclass(init=False)
 class MultiscaleVarianceResult(RealizedEstimatorResult):
     """Result container for multiscale realized variance estimator.
     
@@ -145,6 +146,85 @@ class MultiscaleVarianceResult(RealizedEstimatorResult):
     scale_variances: Optional[np.ndarray] = None
     bias_correction: Optional[bool] = None
     scale_contributions: Optional[np.ndarray] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        realized_measure: np.ndarray,
+        prices: Optional[np.ndarray] = None,
+        times: Optional[np.ndarray] = None,
+        sampling_frequency: Optional[Union[str, float]] = None,
+        kernel_type: Optional[str] = None,
+        bandwidth: Optional[float] = None,
+        subsampling: bool = False,
+        noise_correction: bool = False,
+        annualization_factor: Optional[float] = None,
+        returns: Optional[np.ndarray] = None,
+        noise_variance: Optional[float] = None,
+        jump_threshold: Optional[float] = None,
+        jump_indicators: Optional[np.ndarray] = None,
+        computation_time: Optional[float] = None,
+        config: Optional[Dict[str, Any]] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        scales: Optional[np.ndarray] = None,
+        weights: Optional[np.ndarray] = None,
+        scale_variances: Optional[np.ndarray] = None,
+        bias_correction: Optional[bool] = None,
+        scale_contributions: Optional[np.ndarray] = None
+    ) -> None:
+        """Initialize the multiscale variance result.
+        
+        Args:
+            model_name: Name of the model
+            realized_measure: Computed realized measure
+            prices: High-frequency price data used for computation
+            times: Corresponding time points
+            sampling_frequency: Sampling frequency used for computation
+            kernel_type: Type of kernel used (for kernel-based estimators)
+            bandwidth: Bandwidth parameter (for kernel-based estimators)
+            subsampling: Whether subsampling was used
+            noise_correction: Whether noise correction was applied
+            annualization_factor: Factor used for annualization
+            returns: Returns computed from prices
+            noise_variance: Estimated noise variance
+            jump_threshold: Threshold used for jump detection
+            jump_indicators: Indicators of detected jumps
+            computation_time: Time taken for computation
+            config: Configuration used for estimation
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+            scales: Scales used for estimation
+            weights: Weights used for each scale
+            scale_variances: Realized variance at each scale
+            bias_correction: Whether bias correction was applied
+            scale_contributions: Contribution of each scale to the final estimate
+        """
+        super().__init__(
+            model_name=model_name,
+            realized_measure=realized_measure,
+            prices=prices,
+            times=times,
+            sampling_frequency=sampling_frequency,
+            kernel_type=kernel_type,
+            bandwidth=bandwidth,
+            subsampling=subsampling,
+            noise_correction=noise_correction,
+            annualization_factor=annualization_factor,
+            returns=returns,
+            noise_variance=noise_variance,
+            jump_threshold=jump_threshold,
+            jump_indicators=jump_indicators,
+            computation_time=computation_time,
+            config=config,
+            creation_time=creation_time,
+            metadata=metadata
+        )
+        self.scales = scales
+        self.weights = weights
+        self.scale_variances = scale_variances
+        self.bias_correction = bias_correction
+        self.scale_contributions = scale_contributions
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""
@@ -997,8 +1077,11 @@ class MultiscaleVariance(NoiseRobustEstimator):
             str: A string representation of the estimator
         """
         if not self._fitted:
-            return f"MultiscaleVariance(name='{self._name}', fitted=False)""
+            return f"MultiscaleVariance(name='{self._name}', fitted=False)"
         
         return (f"MultiscaleVariance(name='{self._name}', fitted=True, "
                 f"realized_measure={self._realized_measure[0]:.6f}, "
                 f"num_scales={len(self._scales) if self._scales is not None else 'N/A'})")
+
+# Create alias for backward compatibility
+MultiscaleRealizedVariance = MultiscaleVariance

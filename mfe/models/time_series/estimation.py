@@ -1577,3 +1577,85 @@ def _create_model_result(model: TimeSeriesModel[T],
     )
     
     return result
+
+
+# Create aliases for backward compatibility
+def estimate_arma(data: Union[np.ndarray, pd.Series],
+                 ar_order: int = 1,
+                 ma_order: int = 0,
+                 include_constant: bool = True,
+                 method: str = "mle",
+                 **kwargs: Any) -> TimeSeriesResult:
+    """Estimate an ARMA model.
+    
+    This function is a convenience wrapper around the ARMAModel class.
+    
+    Args:
+        data: Time series data
+        ar_order: Order of the autoregressive component
+        ma_order: Order of the moving average component
+        include_constant: Whether to include a constant term
+        method: Estimation method ('mle', 'css', or 'ols')
+        **kwargs: Additional keyword arguments for estimation
+    
+    Returns:
+        TimeSeriesResult: Estimation results
+    """
+    from mfe.models.time_series.arma import ARMAModel
+    
+    model = ARMAModel(ar_order=ar_order, ma_order=ma_order, include_constant=include_constant)
+    return estimate_model(model, data, method=method, **kwargs)
+
+
+def estimate_armax(data: Union[np.ndarray, pd.Series],
+                  exog: Union[np.ndarray, pd.DataFrame],
+                  ar_order: int = 1,
+                  ma_order: int = 0,
+                  include_constant: bool = True,
+                  method: str = "mle",
+                  **kwargs: Any) -> TimeSeriesResult:
+    """Estimate an ARMAX model.
+    
+    This function is a convenience wrapper around the ARMAXModel class.
+    
+    Args:
+        data: Time series data
+        exog: Exogenous variables
+        ar_order: Order of the autoregressive component
+        ma_order: Order of the moving average component
+        include_constant: Whether to include a constant term
+        method: Estimation method ('mle', 'css', or 'ols')
+        **kwargs: Additional keyword arguments for estimation
+    
+    Returns:
+        TimeSeriesResult: Estimation results
+    """
+    from mfe.models.time_series.arma import ARMAXModel
+    
+    model = ARMAXModel(ar_order=ar_order, ma_order=ma_order, include_constant=include_constant)
+    return estimate_model(model, data, exog=exog, method=method, **kwargs)
+
+
+def estimate_var(data: Union[np.ndarray, pd.DataFrame],
+                lags: int = 1,
+                deterministic: str = "const",
+                method: str = "ols",
+                **kwargs: Any) -> TimeSeriesResult:
+    """Estimate a VAR model.
+    
+    This function is a convenience wrapper around the VARModel class.
+    
+    Args:
+        data: Multivariate time series data
+        lags: Number of lags
+        deterministic: Deterministic terms ('const', 'trend', 'both', or 'none')
+        method: Estimation method ('ols' or 'mle')
+        **kwargs: Additional keyword arguments for estimation
+    
+    Returns:
+        TimeSeriesResult: Estimation results
+    """
+    from mfe.models.time_series.var import VARModel
+    
+    model = VARModel(lags=lags, deterministic=deterministic)
+    return estimate_model(model, data, method=method, **kwargs)

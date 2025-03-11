@@ -828,3 +828,7 @@ class BSDS(BootstrapBase):
             f"random_state={self.params.random_state}, "
             f"fitted={self._fitted})"
         )
+
+# Create aliases for backward compatibility
+RealityCheck = BSDS
+SPA = BSDS

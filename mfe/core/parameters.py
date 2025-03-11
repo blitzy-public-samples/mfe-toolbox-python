@@ -218,24 +218,25 @@ def validate_range(value: float, param_name: str,
     return value
 
 
-def validate_degrees_of_freedom(value: float, param_name: str) -> float:
-    """Validate that a degrees of freedom parameter is valid (> 2).
+def validate_degrees_of_freedom(df: float) -> None:
+    """Validate degrees of freedom parameter.
 
-    Args:
-        value: Parameter value to validate
-        param_name: Name of the parameter for error messages
+    Parameters
+    ----------
+    df : float
+        Degrees of freedom parameter.
 
-    Returns:
-        float: The validated parameter value
-
-    Raises:
-        ParameterError: If the parameter is not greater than 2
+    Raises
+    ------
+    ParameterError
+        If df is not greater than 2.
     """
-    if value <= 2:
-        raise ParameterError(
-            f"Parameter {param_name} (degrees of freedom) must be greater than 2, got {value}"
-        )
-    return value
+    if not isinstance(df, (int, float)):
+        from mfe.core.exceptions import ParameterError as ExceptionsParameterError
+        raise ExceptionsParameterError("Parameter df (degrees of freedom) must be numeric")
+    if df <= 2:
+        from mfe.core.exceptions import ParameterError as ExceptionsParameterError
+        raise ExceptionsParameterError(f"Parameter df (degrees of freedom) must be greater than 2, got {df}")
 
 
 def validate_positive_definite(matrix: np.ndarray, param_name: str) -> np.ndarray:
@@ -1184,22 +1185,24 @@ class StudentTParameters(DistributionParameters):
         df: Degrees of freedom (must be greater than 2)
     """
 
-    df: float
+    df: float = 5.0
+    """Degrees of freedom."""
 
-    def __post_init__(self) -> None:
+    def __post_init__(self):
         """Validate parameters after initialization."""
         self.validate()
 
-    def validate(self) -> None:
-        """Validate Student's t parameter constraints.
-
-        Raises:
-            ParameterError: If parameter constraints are violated
+    def validate(self):
         """
-        super().validate()
+        Validate parameters.
 
-        # Validate degrees of freedom
-        validate_degrees_of_freedom(self.df, "df")
+        Raises
+        ------
+        ParameterError
+            If the degrees of freedom parameter is invalid.
+        """
+        validate_degrees_of_freedom(self.df)
+        super().validate()
 
     def to_array(self) -> np.ndarray:
         """Convert parameters to a NumPy array.
@@ -1272,8 +1275,8 @@ class SkewedTParameters(DistributionParameters):
         lambda_: Skewness parameter (must be between -1 and 1)
     """
 
-    df: float
-    lambda_: float
+    df: float = 5.0
+    lambda_: float = 0.0
 
     def __post_init__(self) -> None:
         """Validate parameters after initialization."""
@@ -1288,10 +1291,15 @@ class SkewedTParameters(DistributionParameters):
         super().validate()
 
         # Validate degrees of freedom
-        validate_degrees_of_freedom(self.df, "df")
+        validate_degrees_of_freedom(self.df)
 
         # Validate skewness parameter
-        validate_range(self.lambda_, "lambda_", -1, 1)
+        if not isinstance(self.lambda_, (int, float)):
+            from mfe.core.exceptions import ParameterError as ExceptionsParameterError
+            raise ExceptionsParameterError("Parameter lambda_ (skewness) must be numeric")
+        if abs(self.lambda_) >= 1:
+            from mfe.core.exceptions import ParameterError as ExceptionsParameterError
+            raise ExceptionsParameterError(f"Parameter lambda_ (skewness) must be between -1 and 1, got {self.lambda_}")
 
     def to_array(self) -> np.ndarray:
         """Convert parameters to a NumPy array.

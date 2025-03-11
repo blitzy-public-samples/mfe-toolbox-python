@@ -950,7 +950,7 @@ class UCFilterParameters(FilterParameters):
         )
 
 
-class FilterBase(ABC, ModelBase[T, FilterResult, TimeSeriesData]):
+class FilterBase(ModelBase[T, FilterResult, TimeSeriesData], ABC):
     """Abstract base class for time series filters.
     
     This class defines the common interface that all filter implementations
@@ -2674,3 +2674,6 @@ def uc_filter(data: TimeSeriesData,
     filter_obj = UCFilter(trend_order=trend_order, cycle_periods=cycle_periods,
                          damping_factor=damping_factor, irregular_var=irregular_var)
     return filter_obj.filter(data, **kwargs)
+
+# Create alias for backward compatibility
+BeveridgeNelsonDecomposition = BNDecomposition

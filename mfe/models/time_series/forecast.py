@@ -1570,3 +1570,132 @@ def plot_forecast(
     ax.grid(True, linestyle='--', alpha=0.7)
 
     return ax
+
+
+# Create aliases for backward compatibility
+def forecast(model: Any,
+            steps: int,
+            exog: Optional[np.ndarray] = None,
+            confidence_level: float = 0.95,
+            method: Union[str, ForecastBandMethod] = "analytical",
+            **kwargs: Any) -> ForecastResult:
+    """Generate forecasts from a time series model.
+    
+    This function is a convenience wrapper around the model's forecast method.
+    
+    Args:
+        model: Time series model to generate forecasts from
+        steps: Number of steps to forecast
+        exog: Exogenous variables for the forecast period (if applicable)
+        confidence_level: Confidence level for prediction intervals
+        method: Method for calculating prediction intervals
+        **kwargs: Additional keyword arguments for forecasting
+    
+    Returns:
+        ForecastResult: Forecast results including point forecasts and prediction intervals
+    
+    Raises:
+        ForecastError: If forecasting fails
+        NotFittedError: If the model has not been fitted
+    """
+    # Create forecast configuration
+    config = ForecastConfig(
+        method=method,
+        confidence_level=confidence_level,
+        **{k: v for k, v in kwargs.items() if hasattr(ForecastConfig, k)}
+    )
+    
+    # Call the model's forecast method
+    if hasattr(model, "forecast"):
+        try:
+            # Extract forecast-specific kwargs
+            forecast_kwargs = {k: v for k, v in kwargs.items() if k not in vars(config)}
+            
+            # Generate forecast
+            point_forecast, lower_bound, upper_bound = model.forecast(
+                steps=steps,
+                exog=exog,
+                confidence_level=confidence_level,
+                **forecast_kwargs
+            )
+            
+            # Create forecast result
+            result = ForecastResult(
+                point_forecast=point_forecast,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                confidence_level=confidence_level,
+                method=config.method,
+                exog_forecast=exog,
+                model_name=getattr(model, "name", None)
+            )
+            
+            # Add forecast index if the model provides it
+            if hasattr(model, "index") and model.index is not None:
+                result.forecast_index = extend_forecast_index(
+                    model.index, steps, getattr(model, "freq", None)
+                )
+            
+            return result
+        except Exception as e:
+            raise ForecastError(f"Forecasting failed: {e}") from e
+    else:
+        raise AttributeError(f"Model {type(model).__name__} does not support forecasting")
+
+
+def forecast_intervals(point_forecast: np.ndarray,
+                      error_variance: np.ndarray,
+                      confidence_level: float = 0.95,
+                      distribution: str = "normal") -> Tuple[np.ndarray, np.ndarray]:
+    """Calculate forecast intervals based on forecast error variance.
+    
+    Args:
+        point_forecast: Point forecasts
+        error_variance: Forecast error variance for each forecast horizon
+        confidence_level: Confidence level for prediction intervals
+        distribution: Error distribution ('normal', 't', 'bootstrap')
+    
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Lower and upper bounds of prediction intervals
+    
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if len(point_forecast) != len(error_variance):
+        raise ValueError(
+            f"Point forecast and error variance must have the same length, "
+            f"got {len(point_forecast)} and {len(error_variance)}"
+        )
+    
+    if not 0 < confidence_level < 1:
+        raise ValueError(
+            f"Confidence level must be between 0 and 1, got {confidence_level}"
+        )
+    
+    # Calculate critical value based on distribution
+    alpha = 1 - confidence_level
+    if distribution.lower() == "normal":
+        critical_value = stats.norm.ppf(1 - alpha/2)
+    elif distribution.lower() in ("t", "student"):
+        # Use t-distribution with 10 degrees of freedom as a default
+        critical_value = stats.t.ppf(1 - alpha/2, df=10)
+    elif distribution.lower() == "bootstrap":
+        # For bootstrap, we use empirical quantiles
+        # This is just a placeholder, as bootstrap intervals should be
+        # calculated directly from bootstrap samples
+        critical_value = stats.norm.ppf(1 - alpha/2)
+    else:
+        raise ValueError(
+            f"Unknown distribution: {distribution}. "
+            f"Valid options are 'normal', 't', or 'bootstrap'"
+        )
+    
+    # Calculate standard errors
+    forecast_stderr = np.sqrt(error_variance)
+    
+    # Calculate bounds
+    lower_bound = point_forecast - critical_value * forecast_stderr
+    upper_bound = point_forecast + critical_value * forecast_stderr
+    
+    return lower_bound, upper_bound

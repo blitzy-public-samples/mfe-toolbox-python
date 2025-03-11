@@ -597,3 +597,10 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create aliases for backward compatibility
+parzen_weights = compute_parzen_weights
+bartlett_weights = compute_bartlett_weights
+tukey_hanning_weights = compute_tukey_hanning_weights
+qs_weights = compute_quadratic_weights
+cubic_weights = compute_flat_top_weights

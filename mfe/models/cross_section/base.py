@@ -22,6 +22,7 @@ from typing import (
 import numpy as np
 import pandas as pd
 from scipy import stats, linalg
+from datetime import datetime
 
 from mfe.core.base import CrossSectionalModelBase, ModelBase
 from mfe.core.parameters import ParameterBase, ParameterError, validate_positive
@@ -965,7 +966,7 @@ class CrossSectionalModelResult(CrossSectionalResult):
         return pd.DataFrame(data)
 
 
-@dataclass
+@dataclass(init=False)
 class PCAResult(ModelResult):
     """Result container for Principal Component Analysis (PCA).
     
@@ -991,6 +992,45 @@ class PCAResult(ModelResult):
     mean: Optional[np.ndarray] = None
     std: Optional[np.ndarray] = None
     variable_names: Optional[List[str]] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        components: np.ndarray,
+        explained_variance: np.ndarray,
+        explained_variance_ratio: np.ndarray,
+        cumulative_explained_variance: np.ndarray,
+        n_components: int,
+        mean: Optional[np.ndarray] = None,
+        std: Optional[np.ndarray] = None,
+        variable_names: Optional[List[str]] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize the PCA result.
+        
+        Args:
+            model_name: Name of the model
+            components: Principal components (loadings)
+            explained_variance: Explained variance for each component
+            explained_variance_ratio: Ratio of explained variance for each component
+            cumulative_explained_variance: Cumulative explained variance ratio
+            n_components: Number of components
+            mean: Mean of the data (used for centering)
+            std: Standard deviation of the data (used for scaling)
+            variable_names: Names of the variables
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+        """
+        super().__init__(model_name=model_name, creation_time=creation_time, metadata=metadata)
+        self.components = components
+        self.explained_variance = explained_variance
+        self.explained_variance_ratio = explained_variance_ratio
+        self.cumulative_explained_variance = cumulative_explained_variance
+        self.n_components = n_components
+        self.mean = mean
+        self.std = std
+        self.variable_names = variable_names
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""

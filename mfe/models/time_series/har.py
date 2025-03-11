@@ -1614,3 +1614,6 @@ class HARQYModel(HARModel):
             include_leverage=False,
             name=name
         )
+
+# Create alias for backward compatibility
+HAR = HARModel

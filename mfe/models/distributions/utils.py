@@ -38,6 +38,7 @@ from mfe.core.types import (
     Vector, DistributionType, DistributionLike, ParameterVector,
     PDFFunction, CDFFunction, PPFFunction, RVSFunction
 )
+from mfe.core.base import DistributionBase
 
 # Type variables for generic functions
 T = TypeVar('T')  # Generic type
@@ -1318,3 +1319,71 @@ def lilliefors_test(data: np.ndarray) -> Dict[str, Any]:
         "p_value": p_value,
         "null_hypothesis": "Data follows the normal distribution"
     }
+
+
+def distribution_from_name(dist_name: str, **kwargs: Any) -> 'DistributionBase':
+    """Create a distribution instance from its name.
+    
+    This function creates and returns a distribution instance based on the
+    provided name. It supports all standard distributions implemented in the
+    MFE Toolbox.
+    
+    Args:
+        dist_name: Name of the distribution (case-insensitive)
+        **kwargs: Additional parameters to pass to the distribution constructor
+    
+    Returns:
+        DistributionBase: An instance of the requested distribution
+        
+    Raises:
+        ValueError: If the distribution name is not recognized
+    """
+    # Normalize the distribution name to lowercase
+    dist_name = dist_name.lower()
+    
+    # Import distribution classes here to avoid circular imports
+    from mfe.models.distributions.normal import Normal
+    from mfe.models.distributions.student_t import StudentT
+    from mfe.models.distributions.generalized_error import GED
+    from mfe.models.distributions.skewed_t import SkewedT
+    
+    # Map distribution names to their classes
+    dist_map = {
+        "normal": Normal,
+        "gaussian": Normal,
+        "norm": Normal,
+        "t": StudentT,
+        "student": StudentT,
+        "studentt": StudentT,
+        "student_t": StudentT,
+        "student-t": StudentT,
+        "ged": GED,
+        "generalized_error": GED,
+        "generalized-error": GED,
+        "generalizedError": GED,
+        "skewed_t": SkewedT,
+        "skewed-t": SkewedT,
+        "skewedT": SkewedT,
+        "skewed": SkewedT,
+        "hansen": SkewedT
+    }
+    
+    # Check if the distribution name is recognized
+    if dist_name not in dist_map:
+        valid_names = ", ".join(sorted(set(dist_map.keys())))
+        raise ValueError(
+            f"Unknown distribution name: {dist_name}. "
+            f"Valid names are: {valid_names}"
+        )
+    
+    # Create and return the distribution instance
+    return dist_map[dist_name](**kwargs)
+
+
+def get_available_distributions() -> List[str]:
+    """Get a list of available distribution names.
+    
+    Returns:
+        List[str]: List of canonical distribution names available in the MFE Toolbox
+    """
+    return ["normal", "student_t", "ged", "skewed_t"]

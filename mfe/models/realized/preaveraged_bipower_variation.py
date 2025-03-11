@@ -29,8 +29,19 @@ from ...core.parameters import validate_positive, validate_non_negative
 # Set up module-level logger
 logger = logging.getLogger("mfe.models.realized.preaveraged_bipower_variation")
 
+# Try to import numba for JIT compilation
+try:
+    from numba import jit
+    HAS_NUMBA = True
+except ImportError:
+    # Create a no-op decorator with the same signature as jit
+    def jit(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator if args and callable(args[0]) else decorator
+    HAS_NUMBA = False
 
-@numba.jit(nopython=True, cache=True)
+@jit(nopython=True, cache=True)
 def _preaveraged_bipower_variation_core(returns: np.ndarray, window_size: int) -> float:
     """
     Numba-accelerated core implementation of preaveraged bipower variation.
@@ -775,3 +786,6 @@ class PreaveragedBipowerVariation(NoiseRobustEstimator, JumpRobustEstimator):
         window_str = f", window_size={self._window_size}"
         config_str = f", config={self._config}" if self._config else ""
         return f"PreaveragedBipowerVariation({fitted_str}{window_str}{config_str})"
+
+# Create alias for backward compatibility
+PreaveragedBiPowerVariation = PreaveragedBipowerVariation

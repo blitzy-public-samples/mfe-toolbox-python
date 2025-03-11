@@ -508,3 +508,6 @@ class BipowerVariation(JumpRobustEstimator):
         fitted_str = "fitted" if self._fitted else "not fitted"
         config_str = f", config={self._config}" if self._config else ""
         return f"BipowerVariation({fitted_str}{config_str})"
+
+# Create alias for backward compatibility
+BiPowerVariation = BipowerVariation

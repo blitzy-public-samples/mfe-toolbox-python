@@ -784,3 +784,6 @@ class ThresholdVariance(JumpRobustEstimator):
         threshold_str = f"threshold_method='{self._threshold_method}'"
         config_str = f", config={self._config}" if self._config else ""
         return f"ThresholdVariance({fitted_str}, {threshold_str}{config_str})"
+
+# Create alias for backward compatibility
+ThresholdRealizedVariance = ThresholdVariance

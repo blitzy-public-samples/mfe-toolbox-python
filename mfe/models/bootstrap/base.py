@@ -738,3 +738,6 @@ class BootstrapBase(ModelBase):
                 data_name="data",
                 issue="contains infinite values"
             )
+
+# Create alias for backward compatibility
+Bootstrap = BootstrapBase

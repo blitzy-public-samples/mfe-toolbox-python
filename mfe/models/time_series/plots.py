@@ -2804,3 +2804,226 @@ def plot_seasonal(
             col = i % n_cols
             axes[row, col].set_visible(False)
 
+
+def plot_diagnostics(
+    model_result: Any,
+    figsize: Tuple[float, float] = (12, 10),
+    lags: int = 20,
+    alpha: float = 0.05,
+    bins: int = 30,
+    add_stats: bool = True,
+    add_loess: bool = True,
+    loess_frac: float = 0.3,
+    color: str = 'steelblue',
+    grid: bool = True,
+    title: Optional[str] = None,
+    **kwargs: Any
+) -> plt.Figure:
+    """Create comprehensive diagnostic plots for a time series model.
+    
+    This function creates a 2x2 grid of diagnostic plots for a time series model:
+    1. Standardized residuals over time
+    2. Histogram of residuals with normal density
+    3. Q-Q plot of residuals
+    4. ACF of residuals
+    
+    Args:
+        model_result: Time series model result object with residuals attribute
+        figsize: Figure size (width, height) in inches
+        lags: Number of lags for ACF plot
+        alpha: Significance level for confidence intervals
+        bins: Number of bins for histogram
+        add_stats: Whether to add descriptive statistics to the plots
+        add_loess: Whether to add LOESS curve to residual plot
+        loess_frac: Fraction of points used for LOESS smoothing
+        color: Color for plots
+        grid: Whether to add grid to plots
+        title: Title for the figure
+        **kwargs: Additional keyword arguments for plots
+        
+    Returns:
+        plt.Figure: Figure with diagnostic plots
+        
+    Raises:
+        ValueError: If model_result does not have residuals attribute
+    """
+    # Check if model_result has residuals attribute
+    if not hasattr(model_result, 'residuals'):
+        raise ValueError("Model result must have 'residuals' attribute")
+    
+    # Get residuals
+    residuals = model_result.residuals
+    
+    # Convert to numpy array if needed
+    if isinstance(residuals, pd.Series):
+        dates = residuals.index
+        residuals = residuals.values
+    else:
+        dates = np.arange(len(residuals))
+    
+    # Get model name if available
+    model_name = getattr(model_result, 'model_name', None)
+    if model_name is None:
+        model_name = getattr(model_result, 'name', "Model")
+    
+    # Create figure and axes
+    fig, axes = plt.subplots(2, 2, figsize=figsize)
+    
+    # 1. Standardized residuals over time
+    ax1 = axes[0, 0]
+    ax1.plot(dates, residuals, 'o-', color=color, alpha=0.5, markersize=3)
+    ax1.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+    
+    # Add LOESS curve if requested
+    if add_loess:
+        try:
+            from statsmodels.nonparametric.smoothers_lowess import lowess
+            x = np.arange(len(residuals))
+            z = lowess(residuals, x, frac=loess_frac)
+            ax1.plot(dates, z[:, 1], 'r-', lw=2)
+        except ImportError:
+            warnings.warn("statsmodels not available, LOESS curve not added")
+    
+    ax1.set_title("Standardized Residuals")
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("Residuals")
+    
+    # Add descriptive statistics if requested
+    if add_stats:
+        mean = np.mean(residuals)
+        std = np.std(residuals, ddof=1)
+        ax1.text(
+            0.05, 0.95, 
+            f"Mean: {mean:.4f}\nStd Dev: {std:.4f}", 
+            transform=ax1.transAxes,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+        )
+    
+    # 2. Histogram of residuals with normal density
+    ax2 = axes[0, 1]
+    hist_kwargs = kwargs.get('hist_kwargs', {})
+    ax2.hist(
+        residuals, 
+        bins=bins, 
+        density=True, 
+        color=color, 
+        alpha=0.6,
+        **hist_kwargs
+    )
+    
+    # Add normal density
+    x = np.linspace(np.min(residuals), np.max(residuals), 100)
+    mean = np.mean(residuals)
+    std = np.std(residuals, ddof=1)
+    normal_density = stats.norm.pdf(x, mean, std)
+    ax2.plot(x, normal_density, 'r-', lw=2)
+    
+    ax2.set_title("Histogram of Residuals")
+    ax2.set_xlabel("Residuals")
+    ax2.set_ylabel("Density")
+    
+    # Add descriptive statistics if requested
+    if add_stats:
+        skewness = stats.skew(residuals)
+        kurtosis = stats.kurtosis(residuals, fisher=True)
+        jb_stat, jb_pval = stats.jarque_bera(residuals)
+        
+        ax2.text(
+            0.05, 0.95, 
+            f"Skewness: {skewness:.4f}\nKurtosis: {kurtosis:.4f}\n"
+            f"JB stat: {jb_stat:.4f}\nJB p-value: {jb_pval:.4f}", 
+            transform=ax2.transAxes,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+        )
+    
+    # 3. Q-Q plot of residuals
+    ax3 = axes[1, 0]
+    qq_kwargs = kwargs.get('qq_kwargs', {})
+    
+    # Compute theoretical quantiles
+    theoretical_quantiles = stats.norm.ppf(
+        np.arange(1, len(residuals) + 1) / (len(residuals) + 1)
+    )
+    
+    # Sort residuals
+    sorted_residuals = np.sort(residuals)
+    
+    # Create Q-Q plot
+    ax3.scatter(
+        theoretical_quantiles, 
+        sorted_residuals, 
+        color=color, 
+        alpha=0.6,
+        **qq_kwargs
+    )
+    
+    # Add reference line
+    min_val = min(np.min(theoretical_quantiles), np.min(sorted_residuals))
+    max_val = max(np.max(theoretical_quantiles), np.max(sorted_residuals))
+    ax3.plot([min_val, max_val], [min_val, max_val], 'r-', lw=2)
+    
+    ax3.set_title("Q-Q Plot")
+    ax3.set_xlabel("Theoretical Quantiles")
+    ax3.set_ylabel("Sample Quantiles")
+    
+    # 4. ACF of residuals
+    ax4 = axes[1, 1]
+    acf_kwargs = kwargs.get('acf_kwargs', {})
+    
+    # Compute ACF
+    acf_values = smt.acf(residuals, nlags=lags, alpha=alpha)
+    
+    # Extract confidence intervals
+    if len(acf_values) == 3:
+        acf_values, confint = acf_values[0], acf_values[1:3]
+        confint = np.array(confint).T
+    else:
+        acf_values = acf_values
+        confint = None
+    
+    # Plot ACF
+    lags_array = np.arange(len(acf_values))
+    ax4.vlines(lags_array, 0, acf_values, color=color, **acf_kwargs)
+    ax4.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+    
+    # Add confidence intervals if available
+    if confint is not None:
+        ax4.fill_between(
+            lags_array,
+            confint[:, 0], confint[:, 1],
+            color=color, alpha=0.2
+        )
+    
+    # Add significance lines
+    if confint is None:
+        # Use approximate confidence intervals
+        ci = stats.norm.ppf(1 - alpha / 2) / np.sqrt(len(residuals))
+        ax4.axhline(y=ci, color='r', linestyle='--', alpha=0.7)
+        ax4.axhline(y=-ci, color='r', linestyle='--', alpha=0.7)
+    
+    ax4.set_title("ACF of Residuals")
+    ax4.set_xlabel("Lag")
+    ax4.set_ylabel("ACF")
+    
+    # Add Ljung-Box test if requested
+    if add_stats:
+        try:
+            from statsmodels.stats.diagnostic import acorr_ljungbox
+            lb_stat, lb_pval = acorr_ljungbox(residuals, lags=[lags], return_df=False)
+            
+            ax4.text(
+                0.05, 0.95, 
+                f"Ljung-Box (lag {lags}):\nStatistic: {lb_stat[0]:.4f}\np-value: {lb_pval[0]:.4f}", 
+                transform=ax4.transAxes,
+                verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+            )
+        except ImportError:
+            warnings.warn("statsmodels not available, Ljung-Box test not added")
+    
+    # Add grid if requested
+    if grid:
+        for ax in axes.flat:
+            ax.grid(True, alpha=0.3)

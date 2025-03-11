@@ -892,6 +892,50 @@ class NotFittedError(MFEError):
         super().__init__(message, details, context_dict)
 
 
+class ValidationError(MFEError):
+    """Exception raised for validation errors.
+    
+    This exception is used when input validation fails, such as due to invalid data types or constraints.
+    
+    Attributes:
+        field: The field or input that failed validation
+        value: The invalid value
+        constraint: Description of the constraint that was violated
+    """
+    
+    def __init__(self, 
+                 message: str, 
+                 field: Optional[str] = None,
+                 value: Optional[Any] = None,
+                 constraint: Optional[str] = None,
+                 details: Optional[str] = None, 
+                 context: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the ValidationError.
+        
+        Args:
+            message: The primary error message
+            field: The field or input that failed validation
+            value: The invalid value
+            constraint: Description of the constraint that was violated
+            details: Additional details about the error
+            context: Dictionary containing contextual information about the error
+        """
+        self.field = field
+        self.value = value
+        self.constraint = constraint
+        
+        # Add validation information to context
+        context_dict = context or {}
+        if field:
+            context_dict["Field"] = field
+        if value is not None:
+            context_dict["Value"] = value
+        if constraint:
+            context_dict["Constraint"] = constraint
+        
+        super().__init__(message, details, context_dict)
+
+
 class MFEWarning(Warning):
     """Base warning class for all MFE Toolbox warnings.
     
@@ -1309,6 +1353,28 @@ def raise_not_fitted_error(message: str,
         NotFittedError: The formatted not fitted error
     """
     raise NotFittedError(message, model_type, operation, details, context)
+
+
+def raise_validation_error(message: str, 
+                          field: Optional[str] = None,
+                          value: Optional[Any] = None,
+                          constraint: Optional[str] = None,
+                          details: Optional[str] = None, 
+                          context: Optional[Dict[str, Any]] = None) -> None:
+    """Raise a ValidationError with consistent formatting.
+    
+    Args:
+        message: The primary error message
+        field: The field or input that failed validation
+        value: The invalid value
+        constraint: Description of the constraint that was violated
+        details: Additional details about the error
+        context: Dictionary containing contextual information about the error
+        
+    Raises:
+        ValidationError: The formatted validation error
+    """
+    raise ValidationError(message, field, value, constraint, details, context)
 
 
 # Helper functions for issuing warnings with consistent formatting

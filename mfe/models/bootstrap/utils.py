@@ -761,78 +761,60 @@ def format_bootstrap_result(
     alternative: Literal['two-sided', 'greater', 'less'] = 'two-sided',
     as_dataframe: bool = False
 ) -> Union[Dict[str, Any], pd.DataFrame]:
-    """
-    Format bootstrap result for presentation.
+    """Format bootstrap results for presentation.
     
-    This function formats the bootstrap result into a dictionary or DataFrame
-    with key statistics and metrics.
+    This function formats bootstrap results into a dictionary or DataFrame
+    for easy presentation and interpretation.
     
     Args:
         result: Bootstrap result object
-        statistic_name: Name of the statistic (used for labeling)
-        confidence_level: Confidence level for intervals (between 0 and 1)
-        include_bias: Whether to include bootstrap bias
-        include_standard_error: Whether to include bootstrap standard error
-        include_p_value: Whether to include bootstrap p-value
+        statistic_name: Name of the statistic
+        confidence_level: Confidence level for intervals
+        include_bias: Whether to include bias estimates
+        include_standard_error: Whether to include standard errors
+        include_p_value: Whether to include p-values
         alternative: Alternative hypothesis for p-value calculation
-        as_dataframe: Whether to return result as a DataFrame
+        as_dataframe: Whether to return a DataFrame
         
     Returns:
-        Union[Dict[str, Any], pd.DataFrame]: Formatted bootstrap result
+        Union[Dict[str, Any], pd.DataFrame]: Formatted results
     """
-    # Extract key components from result
+    # Extract results
     original_statistic = result.original_statistic
     bootstrap_statistics = result.bootstrap_statistics
     
-    # Determine if we're dealing with a scalar or vector statistic
-    is_scalar = np.isscalar(original_statistic) or (
-        isinstance(original_statistic, np.ndarray) and original_statistic.size == 1
+    # Compute confidence intervals
+    confidence_intervals = compute_confidence_interval(
+        bootstrap_statistics=bootstrap_statistics,
+        original_statistic=original_statistic,
+        confidence_level=confidence_level
     )
     
-    # Create statistic name if not provided
-    if statistic_name is None:
-        if is_scalar:
-            statistic_name = "Statistic"
-        else:
-            n_stats = len(original_statistic)
-            statistic_name = [f"Statistic_{i+1}" for i in range(n_stats)]
-    
-    # Compute confidence intervals if not already in result
-    if result.confidence_intervals is None:
-        confidence_intervals = compute_confidence_interval(
-            bootstrap_statistics=bootstrap_statistics,
-            original_statistic=original_statistic,
-            confidence_level=confidence_level,
-            method='percentile'
-        )
-    else:
-        confidence_intervals = result.confidence_intervals
-    
-    # Compute additional statistics if requested
+    # Compute standard errors if requested
+    standard_errors = None
     if include_standard_error:
-        standard_error = compute_bootstrap_standard_errors(bootstrap_statistics)
-    else:
-        standard_error = None
+        standard_errors = compute_bootstrap_standard_errors(bootstrap_statistics)
     
+    # Compute bias if requested
+    bias = None
     if include_bias:
         bias = compute_bootstrap_bias(bootstrap_statistics, original_statistic)
-        bias_corrected = compute_bias_corrected_estimate(original_statistic, bias)
-    else:
-        bias = None
-        bias_corrected = None
     
+    # Compute p-value if requested
+    p_value = None
     if include_p_value:
         p_value = compute_bootstrap_p_value(
             bootstrap_statistics=bootstrap_statistics,
             original_statistic=original_statistic,
             alternative=alternative
         )
-    else:
-        p_value = None
     
-    # Format result based on scalar vs. vector statistic
-    if is_scalar:
-        # Format scalar result
+    # Format results
+    if np.isscalar(original_statistic) or original_statistic.ndim == 0 or original_statistic.size == 1:
+        # Scalar statistic
+        if statistic_name is None:
+            statistic_name = "Statistic"
+        
         formatted_result = {
             "Statistic": statistic_name,
             "Estimate": float(original_statistic) if np.isscalar(original_statistic) else float(original_statistic.item()),
@@ -841,40 +823,24 @@ def format_bootstrap_result(
         }
         
         if include_standard_error:
-            formatted_result["Standard Error"] = float(standard_error) if np.isscalar(standard_error) else float(standard_error.item())
+            formatted_result["Standard Error"] = float(standard_errors) if np.isscalar(standard_errors) else float(standard_errors.item())
         
         if include_bias:
             formatted_result["Bias"] = float(bias) if np.isscalar(bias) else float(bias.item())
-            formatted_result["Bias-Corrected Estimate"] = float(bias_corrected) if np.isscalar(bias_corrected) else float(bias_corrected.item())
+            formatted_result["Bias-Corrected Estimate"] = float(original_statistic - bias) if np.isscalar(original_statistic) else float((original_statistic - bias).item())
         
         if include_p_value:
             formatted_result["p-value"] = float(p_value) if np.isscalar(p_value) else float(p_value.item())
             formatted_result["Alternative"] = alternative
-        
-        # Add bootstrap information
-        formatted_result["Bootstrap Method"] = result.bootstrap_type
-        formatted_result["Number of Bootstraps"] = result.n_bootstraps
-        
-        if result.block_length is not None:
-            formatted_result["Block Length"] = result.block_length
-        
-        # Convert to DataFrame if requested
-        if as_dataframe:
-            return pd.DataFrame([formatted_result])
-        else:
-            return formatted_result
-    
     else:
-        # Format vector result
-        n_stats = len(original_statistic)
+        # Vector statistic
+        if statistic_name is None:
+            statistic_name = [f"Statistic {i+1}" for i in range(len(original_statistic))]
+        elif isinstance(statistic_name, str):
+            statistic_name = [f"{statistic_name} {i+1}" for i in range(len(original_statistic))]
         
-        if isinstance(statistic_name, str):
-            # If a single name was provided for a vector statistic, create a list of names
-            statistic_name = [f"{statistic_name}_{i+1}" for i in range(n_stats)]
-        
-        formatted_results = []
-        
-        for i in range(n_stats):
+        formatted_result = []
+        for i in range(len(original_statistic)):
             result_i = {
                 "Statistic": statistic_name[i],
                 "Estimate": float(original_statistic[i]),
@@ -883,30 +849,26 @@ def format_bootstrap_result(
             }
             
             if include_standard_error:
-                result_i["Standard Error"] = float(standard_error[i])
+                result_i["Standard Error"] = float(standard_errors[i])
             
             if include_bias:
                 result_i["Bias"] = float(bias[i])
-                result_i["Bias-Corrected Estimate"] = float(bias_corrected[i])
+                result_i["Bias-Corrected Estimate"] = float(original_statistic[i] - bias[i])
             
             if include_p_value:
                 result_i["p-value"] = float(p_value[i])
                 result_i["Alternative"] = alternative
             
-            # Add bootstrap information
-            result_i["Bootstrap Method"] = result.bootstrap_type
-            result_i["Number of Bootstraps"] = result.n_bootstraps
-            
-            if result.block_length is not None:
-                result_i["Block Length"] = result.block_length
-            
-            formatted_results.append(result_i)
-        
-        # Convert to DataFrame if requested
-        if as_dataframe:
-            return pd.DataFrame(formatted_results)
+            formatted_result.append(result_i)
+    
+    # Convert to DataFrame if requested
+    if as_dataframe:
+        if isinstance(formatted_result, list):
+            return pd.DataFrame(formatted_result)
         else:
-            return formatted_results
+            return pd.DataFrame([formatted_result])
+    
+    return formatted_result
 
 
 def validate_bootstrap_data(
@@ -1605,3 +1567,359 @@ def summarize_bootstrap_difference_test(
             ])
     
     return "\n".join(summary)
+
+
+def bootstrap_indices(
+    n: int,
+    n_bootstraps: int = 1000,
+    random_state: Optional[Union[int, np.random.Generator]] = None
+) -> np.ndarray:
+    """Generate bootstrap indices for standard (iid) bootstrap.
+    
+    This function generates bootstrap indices for the standard bootstrap method,
+    which assumes independent and identically distributed (iid) data.
+    
+    Args:
+        n: Number of observations in the original data
+        n_bootstraps: Number of bootstrap samples to generate
+        random_state: Random number generator seed for reproducibility
+        
+    Returns:
+        np.ndarray: Bootstrap indices of shape (n_bootstraps, n)
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if n <= 0:
+        raise ValueError("Number of observations must be positive")
+    if n_bootstraps <= 0:
+        raise ValueError("Number of bootstrap samples must be positive")
+    
+    # Set random state
+    if random_state is None:
+        rng = np.random.default_rng()
+    elif isinstance(random_state, int):
+        rng = np.random.default_rng(random_state)
+    else:
+        rng = random_state
+    
+    # Generate bootstrap indices
+    indices = rng.integers(0, n, size=(n_bootstraps, n))
+    
+    return indices
+
+
+def stationary_bootstrap_indices(
+    n: int,
+    block_length: Union[int, float],
+    n_bootstraps: int = 1000,
+    random_state: Optional[Union[int, np.random.Generator]] = None
+) -> np.ndarray:
+    """Generate bootstrap indices for stationary bootstrap.
+    
+    This function generates bootstrap indices for the stationary bootstrap method,
+    which uses random block lengths drawn from a geometric distribution.
+    
+    Args:
+        n: Number of observations in the original data
+        block_length: Expected block length (parameter of geometric distribution)
+        n_bootstraps: Number of bootstrap samples to generate
+        random_state: Random number generator seed for reproducibility
+        
+    Returns:
+        np.ndarray: Bootstrap indices of shape (n_bootstraps, n)
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if n <= 0:
+        raise ValueError("Number of observations must be positive")
+    if block_length <= 0:
+        raise ValueError("Block length must be positive")
+    if n_bootstraps <= 0:
+        raise ValueError("Number of bootstrap samples must be positive")
+    
+    # Set random state
+    if random_state is None:
+        rng = np.random.default_rng()
+    elif isinstance(random_state, int):
+        rng = np.random.default_rng(random_state)
+    else:
+        rng = random_state
+    
+    # Probability of starting a new block
+    p = 1.0 / block_length
+    
+    # Generate bootstrap indices
+    indices = np.zeros((n_bootstraps, n), dtype=int)
+    
+    for i in range(n_bootstraps):
+        # Initialize with random starting points
+        indices[i, 0] = rng.integers(0, n)
+        
+        for j in range(1, n):
+            # With probability p, start a new block
+            if rng.random() < p:
+                indices[i, j] = rng.integers(0, n)
+            else:
+                # Continue the current block
+                indices[i, j] = (indices[i, j-1] + 1) % n
+    
+    return indices
+
+
+def moving_block_bootstrap_indices(
+    n: int,
+    block_length: int,
+    n_bootstraps: int = 1000,
+    random_state: Optional[Union[int, np.random.Generator]] = None
+) -> np.ndarray:
+    """Generate bootstrap indices for moving block bootstrap.
+    
+    This function generates bootstrap indices for the moving block bootstrap method,
+    which uses fixed-length blocks with overlap.
+    
+    Args:
+        n: Number of observations in the original data
+        block_length: Block length
+        n_bootstraps: Number of bootstrap samples to generate
+        random_state: Random number generator seed for reproducibility
+        
+    Returns:
+        np.ndarray: Bootstrap indices of shape (n_bootstraps, n)
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if n <= 0:
+        raise ValueError("Number of observations must be positive")
+    if block_length <= 0:
+        raise ValueError("Block length must be positive")
+    if block_length > n:
+        raise ValueError("Block length cannot exceed the number of observations")
+    if n_bootstraps <= 0:
+        raise ValueError("Number of bootstrap samples must be positive")
+    
+    # Set random state
+    if random_state is None:
+        rng = np.random.default_rng()
+    elif isinstance(random_state, int):
+        rng = np.random.default_rng(random_state)
+    else:
+        rng = random_state
+    
+    # Number of blocks needed
+    n_blocks_needed = int(np.ceil(n / block_length))
+    
+    # Number of possible starting positions for blocks
+    n_possible_blocks = n - block_length + 1
+    
+    # Generate bootstrap indices
+    indices = np.zeros((n_bootstraps, n), dtype=int)
+    
+    for i in range(n_bootstraps):
+        # Select random blocks
+        block_starts = rng.integers(0, n_possible_blocks, size=n_blocks_needed)
+        
+        # Fill in indices
+        idx = 0
+        for start in block_starts:
+            end = min(idx + block_length, n)
+            block_end = start + (end - idx)
+            indices[i, idx:end] = np.arange(start, block_end)
+            idx = end
+            
+            if idx >= n:
+                break
+    
+    return indices
+
+
+def circular_block_bootstrap_indices(
+    n: int,
+    block_length: int,
+    n_bootstraps: int = 1000,
+    random_state: Optional[Union[int, np.random.Generator]] = None
+) -> np.ndarray:
+    """Generate bootstrap indices for circular block bootstrap.
+    
+    This function generates bootstrap indices for the circular block bootstrap method,
+    which uses fixed-length blocks with wrap-around at the end of the series.
+    
+    Args:
+        n: Number of observations in the original data
+        block_length: Block length
+        n_bootstraps: Number of bootstrap samples to generate
+        random_state: Random number generator seed for reproducibility
+        
+    Returns:
+        np.ndarray: Bootstrap indices of shape (n_bootstraps, n)
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if n <= 0:
+        raise ValueError("Number of observations must be positive")
+    if block_length <= 0:
+        raise ValueError("Block length must be positive")
+    if block_length > n:
+        raise ValueError("Block length cannot exceed the number of observations")
+    if n_bootstraps <= 0:
+        raise ValueError("Number of bootstrap samples must be positive")
+    
+    # Set random state
+    if random_state is None:
+        rng = np.random.default_rng()
+    elif isinstance(random_state, int):
+        rng = np.random.default_rng(random_state)
+    else:
+        rng = random_state
+    
+    # Number of blocks needed
+    n_blocks_needed = int(np.ceil(n / block_length))
+    
+    # Generate bootstrap indices
+    indices = np.zeros((n_bootstraps, n), dtype=int)
+    
+    for i in range(n_bootstraps):
+        # Select random blocks
+        block_starts = rng.integers(0, n, size=n_blocks_needed)
+        
+        # Fill in indices
+        idx = 0
+        for start in block_starts:
+            end = min(idx + block_length, n)
+            block_indices = np.arange(start, start + (end - idx)) % n
+            indices[i, idx:end] = block_indices
+            idx = end
+            
+            if idx >= n:
+                break
+    
+    return indices
+
+
+def compute_statistic(
+    data: np.ndarray,
+    statistic_func: Callable[[np.ndarray], Union[float, np.ndarray]],
+    indices: Optional[np.ndarray] = None,
+    axis: int = 0
+) -> np.ndarray:
+    """Compute a statistic on bootstrap samples.
+    
+    This function computes a statistic on bootstrap samples generated from the
+    original data using the provided indices.
+    
+    Args:
+        data: Original data
+        statistic_func: Function that computes the statistic
+        indices: Bootstrap indices of shape (n_bootstraps, n)
+        axis: Axis along which to apply the bootstrap
+        
+    Returns:
+        np.ndarray: Bootstrap statistics
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if data.ndim == 0:
+        raise ValueError("Data must be at least 1-dimensional")
+    
+    # If indices are not provided, just compute the statistic on the original data
+    if indices is None:
+        return statistic_func(data)
+    
+    # Validate indices
+    if indices.ndim != 2:
+        raise ValueError("Indices must be 2-dimensional")
+    
+    n_bootstraps = indices.shape[0]
+    
+    # Compute statistic on each bootstrap sample
+    bootstrap_statistics = []
+    for i in range(n_bootstraps):
+        # Generate bootstrap sample
+        if axis == 0:
+            bootstrap_sample = data[indices[i]]
+        else:
+            bootstrap_sample = np.take(data, indices[i], axis=axis)
+        
+        # Compute statistic
+        statistic = statistic_func(bootstrap_sample)
+        bootstrap_statistics.append(statistic)
+    
+    # Convert to numpy array
+    bootstrap_statistics = np.array(bootstrap_statistics)
+    
+    return bootstrap_statistics
+
+
+def compute_variance(
+    bootstrap_statistics: np.ndarray
+) -> Union[float, np.ndarray]:
+    """Compute the variance of bootstrap statistics.
+    
+    Args:
+        bootstrap_statistics: Bootstrap statistics
+        
+    Returns:
+        Union[float, np.ndarray]: Variance of bootstrap statistics
+    """
+    return np.var(bootstrap_statistics, axis=0, ddof=1)
+
+
+def compute_pvalue(
+    bootstrap_statistics: np.ndarray,
+    original_statistic: Union[float, np.ndarray],
+    alternative: Literal['two-sided', 'greater', 'less'] = 'two-sided'
+) -> Union[float, np.ndarray]:
+    """Compute bootstrap p-value.
+    
+    This function computes a bootstrap p-value for a hypothesis test based on
+    the distribution of bootstrap statistics.
+    
+    Args:
+        bootstrap_statistics: Bootstrap statistics
+        original_statistic: Original statistic computed on the data
+        alternative: Alternative hypothesis
+            - 'two-sided': H1: statistic != 0
+            - 'greater': H1: statistic > 0
+            - 'less': H1: statistic < 0
+        
+    Returns:
+        Union[float, np.ndarray]: Bootstrap p-value
+        
+    Raises:
+        ValueError: If inputs are invalid
+    """
+    # Validate inputs
+    if bootstrap_statistics.ndim == 0:
+        raise ValueError("Bootstrap statistics must be at least 1-dimensional")
+    
+    # Compute p-value based on alternative hypothesis
+    if alternative == 'two-sided':
+        # Two-sided test: p = 2 * min(p(stat >= orig), p(stat <= orig))
+        p_upper = np.mean(bootstrap_statistics >= original_statistic, axis=0)
+        p_lower = np.mean(bootstrap_statistics <= original_statistic, axis=0)
+        p_value = 2.0 * np.minimum(p_upper, p_lower)
+        
+        # Ensure p-value is at most 1
+        p_value = np.minimum(p_value, 1.0)
+    elif alternative == 'greater':
+        # One-sided test (greater): p = p(stat >= orig)
+        p_value = np.mean(bootstrap_statistics >= original_statistic, axis=0)
+    elif alternative == 'less':
+        # One-sided test (less): p = p(stat <= orig)
+        p_value = np.mean(bootstrap_statistics <= original_statistic, axis=0)
+    else:
+        raise ValueError(
+            f"Invalid alternative hypothesis: {alternative}. "
+            f"Must be one of: 'two-sided', 'greater', or 'less'."
+        )
+    
+    return p_value

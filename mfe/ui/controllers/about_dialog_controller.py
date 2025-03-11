@@ -1,5 +1,3 @@
-'''
-# mfe/ui/controllers/about_dialog_controller.py
 """
 About Dialog Controller
 
@@ -233,4 +231,3 @@ async def show_about_dialog(parent=None) -> int:
     controller = AboutDialogController(parent)
     result = await controller.show_dialog()
     return result
-'''

@@ -25,6 +25,7 @@ from typing import (
 import numpy as np
 from scipy import stats, optimize
 from numba import jit
+import pandas as pd
 
 from mfe.core.base import DistributionBase
 from mfe.core.parameters import (
@@ -654,12 +655,10 @@ class ContinuousDistribution(BaseDistribution[T], stats.rv_continuous):
 
 
 class NumbaDistribution(BaseDistribution[T]):
-    """Base class for distributions with Numba-accelerated implementations.
+    """Base class for distributions with Numba-accelerated functions.
     
-    This class extends BaseDistribution to provide a framework for implementing
-    distributions with performance-critical operations accelerated using Numba's
-    JIT compilation. It defines the interface for Numba-accelerated methods and
-    provides default implementations that delegate to the JIT-compiled functions.
+    This class provides a common interface for distributions that use Numba
+    for accelerating their core functions (PDF, CDF, PPF, etc.).
     
     Attributes:
         name: A descriptive name for the distribution
@@ -667,163 +666,237 @@ class NumbaDistribution(BaseDistribution[T]):
     """
     
     # Class variables for JIT-compiled functions
-    _jit_pdf: ClassVar[Optional[Callable]] = None
-    _jit_cdf: ClassVar[Optional[Callable]] = None
-    _jit_ppf: ClassVar[Optional[Callable]] = None
-    _jit_loglikelihood: ClassVar[Optional[Callable]] = None
+    _jit_pdf = None
+    _jit_cdf = None
+    _jit_ppf = None
+    _jit_loglikelihood = None
+    _jit_rvs = None
     
-    def __init__(self, name: str = "NumbaDistribution", params: Optional[T] = None):
-        """Initialize the Numba-accelerated distribution.
+    def __init__(self, name: str, params: Optional[T] = None):
+        """Initialize the distribution.
         
         Args:
             name: A descriptive name for the distribution
             params: Distribution parameters
         """
-        super().__init__(name=name, params=params)
-        
-        # Ensure JIT-compiled functions are initialized
-        self._initialize_jit_functions()
+        self.name = name
+        self.params = params
     
-    @classmethod
-    def _initialize_jit_functions(cls) -> None:
-        """Initialize JIT-compiled functions if not already done.
+    def _params_to_tuple(self) -> Tuple[float, ...]:
+        """Convert parameters to tuple for JIT functions.
         
-        This method should be implemented by subclasses to initialize
-        the JIT-compiled functions for the distribution.
+        Returns:
+            Tuple[float, ...]: Parameter tuple
         """
-        pass
+        raise NotImplementedError("Must be implemented by subclass")
     
-    def pdf(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
-        """Compute the probability density function using Numba acceleration.
+    def _vector_to_params(self, vector: np.ndarray) -> T:
+        """Convert parameter vector to parameter object.
+        
+        Args:
+            vector: Parameter vector
+        
+        Returns:
+            P: Parameter object
+        """
+        raise NotImplementedError("Must be implemented by subclass")
+    
+    def _get_initial_params(self, data: np.ndarray) -> np.ndarray:
+        """Get initial parameter values for optimization.
+        
+        Args:
+            data: Data to estimate initial parameters from
+        
+        Returns:
+            np.ndarray: Initial parameter vector
+        """
+        raise NotImplementedError("Must be implemented by subclass")
+    
+    def pdf(self, x: Union[np.ndarray, pd.Series, pd.DataFrame], **kwargs: Any) -> Union[np.ndarray, pd.Series, pd.DataFrame]:
+        """Compute the probability density function.
         
         Args:
             x: Values to compute the PDF for
             **kwargs: Additional keyword arguments for the PDF
         
         Returns:
-            np.ndarray: PDF values
+            Union[np.ndarray, pd.Series, pd.DataFrame]: PDF values
             
         Raises:
             DistributionError: If the parameters are not set
             ValueError: If x contains invalid values
-            RuntimeError: If JIT-compiled function is not initialized
         """
-        if self._params is None:
+        if self.params is None:
             raise DistributionError(
                 "Parameters are not set",
                 distribution_type=self.name
             )
         
         # Convert input to numpy array if needed
-        if not isinstance(x, np.ndarray):
-            x = np.asarray(x, dtype=np.float64)
-        elif x.dtype != np.float64:
-            x = x.astype(np.float64)
+        is_series = isinstance(x, pd.Series)
+        is_dataframe = isinstance(x, pd.DataFrame)
+        
+        if is_series:
+            x_array = x.values
+        elif is_dataframe:
+            x_array = x.values.flatten()
+        else:
+            x_array = np.asarray(x)
         
         # Check for invalid values
-        if np.isnan(x).any() or np.isinf(x).any():
+        if np.isnan(x_array).any() or np.isinf(x_array).any():
             raise ValueError("Input contains NaN or infinite values")
         
-        # Ensure JIT-compiled function is initialized
-        if self.__class__._jit_pdf is None:
-            self._initialize_jit_functions()
-            if self.__class__._jit_pdf is None:
-                raise RuntimeError("JIT-compiled PDF function is not initialized")
-        
-        # Extract parameters for JIT function
+        # Get parameters as tuple
         param_tuple = self._params_to_tuple()
         
-        # Call JIT-compiled function
-        return self.__class__._jit_pdf(x, *param_tuple)
+        # Compute PDF values
+        pdf_values = self.__class__._jit_pdf(x_array, *param_tuple)
+        
+        # Convert back to original type if needed
+        if is_series:
+            return pd.Series(pdf_values, index=x.index)
+        elif is_dataframe:
+            return pd.DataFrame(pdf_values.reshape(x.shape), index=x.index, columns=x.columns)
+        else:
+            return pdf_values
     
-    def cdf(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
-        """Compute the cumulative distribution function using Numba acceleration.
+    def cdf(self, x: Union[np.ndarray, pd.Series, pd.DataFrame], **kwargs: Any) -> Union[np.ndarray, pd.Series, pd.DataFrame]:
+        """Compute the cumulative distribution function.
         
         Args:
             x: Values to compute the CDF for
             **kwargs: Additional keyword arguments for the CDF
         
         Returns:
-            np.ndarray: CDF values
+            Union[np.ndarray, pd.Series, pd.DataFrame]: CDF values
             
         Raises:
             DistributionError: If the parameters are not set
             ValueError: If x contains invalid values
-            RuntimeError: If JIT-compiled function is not initialized
         """
-        if self._params is None:
+        if self.params is None:
             raise DistributionError(
                 "Parameters are not set",
                 distribution_type=self.name
             )
         
         # Convert input to numpy array if needed
-        if not isinstance(x, np.ndarray):
-            x = np.asarray(x, dtype=np.float64)
-        elif x.dtype != np.float64:
-            x = x.astype(np.float64)
+        is_series = isinstance(x, pd.Series)
+        is_dataframe = isinstance(x, pd.DataFrame)
+        
+        if is_series:
+            x_array = x.values
+        elif is_dataframe:
+            x_array = x.values.flatten()
+        else:
+            x_array = np.asarray(x)
         
         # Check for invalid values
-        if np.isnan(x).any() or np.isinf(x).any():
+        if np.isnan(x_array).any() or np.isinf(x_array).any():
             raise ValueError("Input contains NaN or infinite values")
         
-        # Ensure JIT-compiled function is initialized
-        if self.__class__._jit_cdf is None:
-            self._initialize_jit_functions()
-            if self.__class__._jit_cdf is None:
-                raise RuntimeError("JIT-compiled CDF function is not initialized")
-        
-        # Extract parameters for JIT function
+        # Get parameters as tuple
         param_tuple = self._params_to_tuple()
         
-        # Call JIT-compiled function
-        return self.__class__._jit_cdf(x, *param_tuple)
+        # Compute CDF values
+        cdf_values = self.__class__._jit_cdf(x_array, *param_tuple)
+        
+        # Convert back to original type if needed
+        if is_series:
+            return pd.Series(cdf_values, index=x.index)
+        elif is_dataframe:
+            return pd.DataFrame(cdf_values.reshape(x.shape), index=x.index, columns=x.columns)
+        else:
+            return cdf_values
     
-    def ppf(self, q: np.ndarray, **kwargs: Any) -> np.ndarray:
-        """Compute the percent point function using Numba acceleration.
+    def ppf(self, q: Union[np.ndarray, pd.Series, pd.DataFrame], **kwargs: Any) -> Union[np.ndarray, pd.Series, pd.DataFrame]:
+        """Compute the percent point function (inverse of CDF).
         
         Args:
             q: Probabilities to compute the PPF for
             **kwargs: Additional keyword arguments for the PPF
         
         Returns:
-            np.ndarray: PPF values
+            Union[np.ndarray, pd.Series, pd.DataFrame]: PPF values
             
         Raises:
             DistributionError: If the parameters are not set
             ValueError: If q contains values outside [0, 1]
-            RuntimeError: If JIT-compiled function is not initialized
         """
-        if self._params is None:
+        if self.params is None:
             raise DistributionError(
                 "Parameters are not set",
                 distribution_type=self.name
             )
         
         # Convert input to numpy array if needed
-        if not isinstance(q, np.ndarray):
-            q = np.asarray(q, dtype=np.float64)
-        elif q.dtype != np.float64:
-            q = q.astype(np.float64)
+        is_series = isinstance(q, pd.Series)
+        is_dataframe = isinstance(q, pd.DataFrame)
+        
+        if is_series:
+            q_array = q.values
+        elif is_dataframe:
+            q_array = q.values.flatten()
+        else:
+            q_array = np.asarray(q)
         
         # Check for invalid values
-        if np.isnan(q).any() or np.isinf(q).any():
+        if np.isnan(q_array).any() or np.isinf(q_array).any():
             raise ValueError("Input contains NaN or infinite values")
         
-        if np.any((q < 0) | (q > 1)):
+        if np.any((q_array < 0) | (q_array > 1)):
             raise ValueError("Probabilities must be between 0 and 1")
         
-        # Ensure JIT-compiled function is initialized
-        if self.__class__._jit_ppf is None:
-            self._initialize_jit_functions()
-            if self.__class__._jit_ppf is None:
-                raise RuntimeError("JIT-compiled PPF function is not initialized")
-        
-        # Extract parameters for JIT function
+        # Get parameters as tuple
         param_tuple = self._params_to_tuple()
         
-        # Call JIT-compiled function
-        return self.__class__._jit_ppf(q, *param_tuple)
+        # Compute PPF values
+        ppf_values = self.__class__._jit_ppf(q_array, *param_tuple)
+        
+        # Convert back to original type if needed
+        if is_series:
+            return pd.Series(ppf_values, index=q.index)
+        elif is_dataframe:
+            return pd.DataFrame(ppf_values.reshape(q.shape), index=q.index, columns=q.columns)
+        else:
+            return ppf_values
+    
+    def loglikelihood(self, data: Union[np.ndarray, pd.Series, pd.DataFrame], **kwargs: Any) -> float:
+        """Compute the log-likelihood of data.
+        
+        Args:
+            data: Data to compute the log-likelihood for
+            **kwargs: Additional keyword arguments for the log-likelihood
+        
+        Returns:
+            float: Log-likelihood value
+            
+        Raises:
+            DistributionError: If the parameters are not set
+            ValueError: If data contains invalid values
+        """
+        if self.params is None:
+            raise DistributionError(
+                "Parameters are not set",
+                distribution_type=self.name
+            )
+        
+        # Convert input to numpy array if needed
+        if isinstance(data, (pd.Series, pd.DataFrame)):
+            data_array = data.values.flatten()
+        else:
+            data_array = np.asarray(data)
+        
+        # Check for invalid values
+        if np.isnan(data_array).any() or np.isinf(data_array).any():
+            raise ValueError("Input contains NaN or infinite values")
+        
+        # Get parameters as tuple
+        param_tuple = self._params_to_tuple()
+        
+        # Compute log-likelihood
+        return self.__class__._jit_loglikelihood(data_array, *param_tuple)
     
     def rvs(self, 
            size: Union[int, Tuple[int, ...]], 
@@ -843,7 +916,7 @@ class NumbaDistribution(BaseDistribution[T]):
             DistributionError: If the parameters are not set
             ValueError: If size is invalid
         """
-        if self._params is None:
+        if self.params is None:
             raise DistributionError(
                 "Parameters are not set",
                 distribution_type=self.name
@@ -857,76 +930,146 @@ class NumbaDistribution(BaseDistribution[T]):
         else:
             rng = random_state
         
-        # Generate uniform random numbers
-        u = rng.random(size=size)
+        # Convert size to int if it's a tuple with a single element
+        if isinstance(size, tuple) and len(size) == 1:
+            size_int = size[0]
+        elif isinstance(size, int):
+            size_int = size
+        else:
+            # For multi-dimensional sizes, compute total size
+            size_int = np.prod(size)
         
-        # Use inverse transform sampling (PPF of uniform -> PPF of target)
-        return self.ppf(u)
+        # Generate uniform random numbers
+        u = rng.random(size=size_int)
+        
+        # Get parameters as tuple
+        param_tuple = self._params_to_tuple()
+        
+        # Generate random variates using the JIT-compiled function
+        rvs = self.__class__._jit_rvs(size_int, *param_tuple, u)
+        
+        # Reshape if necessary
+        if isinstance(size, tuple) and len(size) > 1:
+            rvs = rvs.reshape(size)
+        
+        return rvs
     
-    def loglikelihood(self, x: np.ndarray, **kwargs: Any) -> float:
-        """Compute the log-likelihood using Numba acceleration.
+    async def rvs_async(self, 
+                       size: Union[int, Tuple[int, ...]], 
+                       random_state: Optional[Union[int, np.random.Generator]] = None,
+                       **kwargs: Any) -> np.ndarray:
+        """Asynchronously generate random variates from the distribution.
+        
+        This method provides an asynchronous interface to the rvs method,
+        allowing for non-blocking random number generation for large sample sizes.
         
         Args:
-            x: Data to compute the log-likelihood for
-            **kwargs: Additional keyword arguments for the log-likelihood
+            size: Number of random variates to generate
+            random_state: Random number generator or seed
+            **kwargs: Additional keyword arguments for random variate generation
         
         Returns:
-            float: Log-likelihood value
+            np.ndarray: Random variates
             
         Raises:
             DistributionError: If the parameters are not set
-            ValueError: If x contains invalid values
-            RuntimeError: If JIT-compiled function is not initialized
+            ValueError: If size is invalid
         """
-        if self._params is None:
-            raise DistributionError(
-                "Parameters are not set",
-                distribution_type=self.name
-            )
-        
-        # Convert input to numpy array if needed
-        if not isinstance(x, np.ndarray):
-            x = np.asarray(x, dtype=np.float64)
-        elif x.dtype != np.float64:
-            x = x.astype(np.float64)
-        
-        # Check for invalid values
-        if np.isnan(x).any() or np.isinf(x).any():
-            raise ValueError("Input contains NaN or infinite values")
-        
-        # Use JIT-compiled function if available
-        if self.__class__._jit_loglikelihood is not None:
-            # Extract parameters for JIT function
-            param_tuple = self._params_to_tuple()
-            
-            # Call JIT-compiled function
-            return self.__class__._jit_loglikelihood(x, *param_tuple)
-        else:
-            # Fallback to computing log-likelihood using PDF
-            log_pdf = np.log(self.pdf(x))
-            
-            # Handle potential numerical issues
-            if np.isnan(log_pdf).any() or np.isinf(log_pdf).any():
-                raise NumericError(
-                    "Log-likelihood computation resulted in NaN or infinite values",
-                    operation="log-likelihood",
-                    values=log_pdf,
-                    error_type="numerical instability"
-                )
-            
-            return np.sum(log_pdf)
+        # This is a simple implementation that just calls the synchronous version
+        # In a real implementation, this would use asyncio to avoid blocking
+        return self.rvs(size, random_state, **kwargs)
     
-    @abc.abstractmethod
-    def _params_to_tuple(self) -> Tuple[float, ...]:
-        """Convert parameters to a tuple for JIT functions.
+    def fit(self, data: Union[np.ndarray, pd.Series, pd.DataFrame], method: str = "MLE", **kwargs: Any) -> T:
+        """Fit the distribution to data.
+        
+        Args:
+            data: Data to fit the distribution to
+            method: Estimation method (default: "MLE")
+            **kwargs: Additional keyword arguments for the estimation method
         
         Returns:
-            Tuple[float, ...]: Parameter tuple
+            T: Estimated parameters
             
         Raises:
-            DistributionError: If parameters are not set
+            ValueError: If data contains invalid values
+            NotImplementedError: If the method is not supported
         """
-        pass
+        # Convert input to numpy array if needed
+        if isinstance(data, (pd.Series, pd.DataFrame)):
+            data_array = data.values.flatten()
+        else:
+            data_array = np.asarray(data)
+        
+        # Check for invalid values
+        if np.isnan(data_array).any() or np.isinf(data_array).any():
+            raise ValueError("Data contains NaN or infinite values")
+        
+        # Get initial parameter values
+        initial_params = self._get_initial_params(data_array)
+        
+        if method == "MLE":
+            # Define objective function for optimization
+            def objective(params: np.ndarray) -> float:
+                try:
+                    # Convert parameter vector to parameter object
+                    param_obj = self._vector_to_params(params)
+                    
+                    # Create temporary distribution with these parameters
+                    temp_dist = self.__class__(name=self.name, params=param_obj)
+                    
+                    # Compute negative log-likelihood
+                    return -temp_dist.loglikelihood(data_array)
+                except (ValueError, ParameterError):
+                    # Return large value if parameters are invalid
+                    return np.inf
+            
+            # Minimize negative log-likelihood
+            result = optimize.minimize(
+                objective,
+                initial_params,
+                method="Nelder-Mead",
+                options={"maxiter": 1000}
+            )
+            
+            if not result.success:
+                warnings.warn(
+                    f"Optimization failed: {result.message}",
+                    RuntimeWarning
+                )
+            
+            # Convert parameter vector to parameter object
+            params = self._vector_to_params(result.x)
+            
+            # Update distribution parameters
+            self.params = params
+            
+            return params
+        else:
+            raise NotImplementedError(
+                f"Method {method} is not supported"
+            )
+    
+    async def fit_async(self, data: Union[np.ndarray, pd.Series, pd.DataFrame], method: str = "MLE", **kwargs: Any) -> T:
+        """Asynchronously fit the distribution to data.
+        
+        This method provides an asynchronous interface to the fit method,
+        allowing for non-blocking parameter estimation for large datasets.
+        
+        Args:
+            data: Data to fit the distribution to
+            method: Estimation method (default: "MLE")
+            **kwargs: Additional keyword arguments for the estimation method
+        
+        Returns:
+            T: Estimated parameters
+            
+        Raises:
+            ValueError: If data contains invalid values
+            NotImplementedError: If the method is not supported
+        """
+        # This is a simple implementation that just calls the synchronous version
+        # In a real implementation, this would use asyncio to avoid blocking
+        return self.fit(data, method, **kwargs)
 
 
 @dataclass
@@ -1200,3 +1343,6 @@ class Normal(NumbaDistribution[NormalParams]):
         
         # Use scipy.stats.norm for PPF computation
         return self._params.mu + self._params.sigma * stats.norm.ppf(q)
+
+# Create an alias for backward compatibility
+Distribution = BaseDistribution

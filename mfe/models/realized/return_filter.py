@@ -1168,3 +1168,6 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create alias for backward compatibility
+return_filter = filter_returns

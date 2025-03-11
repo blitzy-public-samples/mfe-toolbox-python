@@ -62,20 +62,24 @@ class TimeSeriesConfig:
         cov_type: Type of covariance matrix to compute
         use_numba: Whether to use Numba acceleration if available
         display_progress: Whether to display progress during estimation
+        distribution: Error distribution type
+        distribution_params: Additional parameters for the error distribution
     """
     
-    method: str = "css"  # Conditional sum of squares
+    method: str = "statespace"  # State space method (previously "css")
     solver: str = "BFGS"  # Optimization solver
     max_iter: int = 1000  # Maximum iterations
     tol: float = 1e-8  # Convergence tolerance
     cov_type: str = "robust"  # Covariance matrix type
     use_numba: bool = True  # Use Numba acceleration if available
     display_progress: bool = False  # Display progress during estimation
+    distribution: str = "normal"  # Error distribution type
+    distribution_params: Optional[Dict[str, Any]] = None  # Distribution parameters
     
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         # Validate method
-        valid_methods = ["css", "mle", "ols"]
+        valid_methods = ["statespace", "innovations_mle", "hannan_rissanen", "yule_walker", "burg", "innovations", "css"]
         if self.method not in valid_methods:
             raise ParameterError(
                 f"Invalid estimation method: {self.method}",
@@ -338,6 +342,9 @@ class TimeSeriesModel(ModelBase[T, TimeSeriesResult, Union[np.ndarray, pd.Series
         Args:
             config: The model configuration
         """
+        # Validate the configuration by calling __post_init__
+        # This ensures that any modifications to the config after creation are validated
+        config.__post_init__()
         self._config = config
     
     @property

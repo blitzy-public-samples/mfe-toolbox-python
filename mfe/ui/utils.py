@@ -48,94 +48,166 @@ def format_latex_equation(equation: str) -> str:
     """
     Format a LaTeX equation for display in matplotlib.
     
-    This function ensures that the equation is properly formatted for
-    rendering with matplotlib's LaTeX support. It handles common formatting
-    issues and ensures the equation is wrapped in appropriate LaTeX delimiters.
+    This function formats a LaTeX equation string for proper display in matplotlib
+    by ensuring it has the correct delimiters and escaping special characters.
     
     Args:
-        equation: The LaTeX equation string
-        
+        equation: LaTeX equation string
+    
     Returns:
-        Properly formatted LaTeX equation string
-        
+        str: Formatted LaTeX equation string
+    
     Examples:
-        >>> format_latex_equation("y_t = \beta_0 + \beta_1 x_t")
-        '$y_t = \beta_0 + \beta_1 x_t$'
+        >>> format_latex_equation("y = \\beta_0 + \\beta_1 x")
+        '$y = \\beta_0 + \\beta_1 x$'
     """
-    # Remove existing $ delimiters if present
+    # Remove any existing $ delimiters
     equation = equation.strip()
     if equation.startswith('$') and equation.endswith('$'):
         equation = equation[1:-1]
-    elif equation.startswith('$$') and equation.endswith('$$'):
-        equation = equation[2:-2]
     
-    # Ensure proper spacing around operators
-    equation = re.sub(r'([=+\-*/])', r' \1 ', equation)
-    equation = re.sub(r'\s+', ' ', equation)  # Normalize spaces
+    # Add $ delimiters
+    formatted_equation = f"${equation}$"
     
-    # Wrap in $ delimiters for inline math mode
-    return f"${{equation}}$"
+    return formatted_equation
 
 
-def create_equation_figure(equation: str, figsize: Tuple[float, float] = (6, 1.5), 
-                          dpi: int = 100, fontsize: int = 12) -> Figure:
+# Alias for backward compatibility
+format_equation = format_latex_equation
+
+
+def create_equation_figure(equation: str, 
+                          font_size: int = 12, 
+                          dpi: int = 100, 
+                          dark_mode: bool = False) -> Figure:
     """
-    Create a matplotlib figure with a rendered LaTeX equation.
+    Create a matplotlib figure with a LaTeX equation.
     
-    This function creates a matplotlib figure with a rendered LaTeX equation
-    that can be embedded in a PyQt6 interface using FigureCanvas.
+    This function creates a matplotlib figure with a LaTeX equation rendered
+    using matplotlib's math text rendering. The figure is sized to fit the
+    equation and can be customized with different font sizes and DPI settings.
     
     Args:
-        equation: The LaTeX equation string
-        figsize: Figure size in inches (width, height)
-        dpi: Dots per inch for the figure
-        fontsize: Font size for the equation
-        
+        equation: LaTeX equation string
+        font_size: Font size for the equation
+        dpi: DPI for the figure
+        dark_mode: Whether to use dark mode colors
+    
     Returns:
-        Matplotlib figure with the rendered equation
-        
+        Figure: Matplotlib figure with the rendered equation
+    
+    Raises:
+        ValueError: If the equation is empty or invalid
+    """
+    if not equation:
+        raise ValueError("Equation cannot be empty")
+    
+    # Format the equation for LaTeX
+    formatted_equation = format_latex_equation(equation)
+    
+    # Create a figure with the right size
+    fig = Figure(figsize=(6, 1.5), dpi=dpi)
+    
+    # Set dark mode if requested
+    if dark_mode:
+        fig.patch.set_facecolor("#2D2D30")
+        text_color = "white"
+    else:
+        fig.patch.set_facecolor("white")
+        text_color = "black"
+    
+    # Add a single axes to the figure
+    ax = fig.add_subplot(111)
+    
+    # Remove axes and ticks
+    ax.axis("off")
+    
+    # Set the equation as the title
+    ax.set_title(formatted_equation, fontsize=font_size, color=text_color)
+    
+    # Adjust the layout to fit the equation
+    fig.tight_layout(pad=0.5)
+    
+    return fig
+
+
+def create_figure_canvas(figsize: Tuple[float, float] = (6, 4), 
+                        dpi: int = 100, 
+                        tight_layout: bool = True) -> Tuple[Figure, FigureCanvas]:
+    """
+    Create a matplotlib figure and canvas for embedding in Qt widgets.
+    
+    This function creates a matplotlib figure and a FigureCanvas that can be
+    embedded in Qt widgets. The figure and canvas are configured with the
+    specified size and DPI settings.
+    
+    Args:
+        figsize: Size of the figure in inches (width, height)
+        dpi: DPI for the figure
+        tight_layout: Whether to use tight layout for the figure
+    
+    Returns:
+        Tuple[Figure, FigureCanvas]: Matplotlib figure and canvas
+    
     Examples:
-        >>> fig = create_equation_figure("y_t = \beta_0 + \beta_1 x_t")
-        >>> canvas = FigureCanvas(fig)
+        >>> fig, canvas = create_figure_canvas(figsize=(8, 6), dpi=100)
+        >>> ax = fig.add_subplot(111)
+        >>> ax.plot([1, 2, 3], [4, 5, 6])
+        >>> canvas.draw()
         >>> layout.addWidget(canvas)
     """
-    try:
-        # Create a figure
-        fig = Figure(figsize=figsize, dpi=dpi)
-        fig.patch.set_facecolor('white')
-        
-        # Create an axis for the equation
-        ax = fig.add_subplot(111)
-        ax.set_axis_off()
-        
-        # Format the equation
-        formatted_equation = format_latex_equation(equation)
-        
-        # Render the equation
-        ax.text(
-            0.5, 0.5, formatted_equation,
-            fontsize=fontsize, ha='center', va='center',
-            transform=ax.transAxes
-        )
-        
-        # Adjust the figure layout
+    # Create a figure with the specified size and DPI
+    fig = Figure(figsize=figsize, dpi=dpi)
+    
+    # Create a canvas for the figure
+    canvas = FigureCanvas(fig)
+    
+    # Set the canvas size policy
+    canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    
+    # Use tight layout if requested
+    if tight_layout:
         fig.tight_layout()
-        
-        return fig
-    except Exception as e:
-        logger.error(f"Error creating equation figure: {e}")
-        # Create an error figure
-        fig = Figure(figsize=figsize, dpi=dpi)
-        fig.patch.set_facecolor('white')
-        ax = fig.add_subplot(111)
-        ax.set_axis_off()
-        ax.text(
-            0.5, 0.5, "Error rendering equation",
-            fontsize=fontsize, ha='center', va='center', color='red',
-            transform=ax.transAxes
-        )
-        fig.tight_layout()
-        return fig
+    
+    return fig, canvas
+
+
+def embed_matplotlib_figure(fig: Figure, parent: Optional[QWidget] = None) -> FigureCanvas:
+    """
+    Embed a matplotlib figure in a Qt widget.
+    
+    This function creates a FigureCanvas for a matplotlib figure and configures
+    it for embedding in a Qt widget. The canvas is set to expand to fill the
+    available space.
+    
+    Args:
+        fig: Matplotlib figure to embed
+        parent: Parent widget for the canvas
+    
+    Returns:
+        FigureCanvas: Canvas widget containing the figure
+    
+    Examples:
+        >>> fig = Figure(figsize=(8, 6))
+        >>> ax = fig.add_subplot(111)
+        >>> ax.plot([1, 2, 3], [4, 5, 6])
+        >>> canvas = embed_matplotlib_figure(fig)
+        >>> layout.addWidget(canvas)
+    """
+    # Create a canvas for the figure
+    canvas = FigureCanvas(fig)
+    
+    # Set the parent if provided
+    if parent is not None:
+        canvas.setParent(parent)
+    
+    # Set the canvas size policy
+    canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+    
+    # Update the figure
+    canvas.draw()
+    
+    return canvas
 
 
 def create_parameter_table(parameters: List[Dict[str, Any]], 
@@ -143,26 +215,30 @@ def create_parameter_table(parameters: List[Dict[str, Any]],
                           page: int = 1,
                           items_per_page: int = 10) -> Tuple[int, int]:
     """
-    Populate a QTableWidget with parameter data, supporting pagination.
+    Create a table of model parameters with pagination.
     
-    This function populates a QTableWidget with parameter data from a list of
-    parameter dictionaries. It supports pagination for large parameter sets.
+    This function populates a QTableWidget with model parameters, including
+    parameter names, values, standard errors, t-statistics, and p-values.
+    It supports pagination for large parameter sets.
     
     Args:
-        parameters: List of parameter dictionaries with keys 'name', 'estimate',
-                   'std_error', 't_stat', and 'p_value'
+        parameters: List of parameter dictionaries
         table: QTableWidget to populate
         page: Current page number (1-based)
         items_per_page: Number of items to display per page
-        
+    
     Returns:
-        Tuple of (current_page, total_pages)
-        
-    Examples:
-        >>> params = [{'name': 'Constant', 'estimate': 0.5, 'std_error': 0.1, 
-                      't_stat': 5.0, 'p_value': 0.001}]
-        >>> current_page, total_pages = create_parameter_table(params, table_widget)
+        Tuple[int, int]: Current page and total pages
+    
+    Raises:
+        ValueError: If parameters is empty or table is None
     """
+    if not parameters:
+        raise ValueError("Parameters list cannot be empty")
+    
+    if table is None:
+        raise ValueError("Table widget cannot be None")
+    
     try:
         # Calculate pagination
         total_pages = math.ceil(len(parameters) / items_per_page)
@@ -240,6 +316,109 @@ def create_parameter_table(parameters: List[Dict[str, Any]],
         error_item.setForeground(QColor(255, 0, 0))
         table.setItem(0, 0, error_item)
         return 1, 1
+
+
+def create_results_table(results: Dict[str, Any], 
+                        table: QTableWidget,
+                        show_significance: bool = True,
+                        decimal_places: int = 4) -> None:
+    """
+    Create a table of model estimation results.
+    
+    This function populates a QTableWidget with model estimation results,
+    including parameter estimates, standard errors, t-statistics, and p-values.
+    It supports formatting of values and highlighting of significant parameters.
+    
+    Args:
+        results: Dictionary of model results
+        table: QTableWidget to populate
+        show_significance: Whether to show significance stars
+        decimal_places: Number of decimal places to display
+    
+    Raises:
+        ValueError: If results is empty or table is None
+    """
+    if not results:
+        raise ValueError("Results dictionary cannot be empty")
+    
+    if table is None:
+        raise ValueError("Table widget cannot be None")
+    
+    # Clear the table
+    table.clearContents()
+    table.setRowCount(0)
+    
+    # Set up the table headers
+    table.setColumnCount(5)
+    table.setHorizontalHeaderLabels(["Parameter", "Value", "Std. Error", "t-Statistic", "p-Value"])
+    
+    # Get the parameters from the results
+    parameters = results.get("parameters", {})
+    std_errors = results.get("std_errors", {})
+    t_stats = results.get("t_statistics", {})
+    p_values = results.get("p_values", {})
+    
+    # Define significance levels and symbols
+    significance_levels = {
+        0.01: "***",
+        0.05: "**",
+        0.10: "*"
+    }
+    
+    # Add the parameters to the table
+    row = 0
+    for param_name, param_value in parameters.items():
+        table.insertRow(row)
+        
+        # Parameter name
+        table.setItem(row, 0, QTableWidgetItem(param_name))
+        
+        # Parameter value
+        value_str = f"{param_value:.{decimal_places}f}"
+        table.setItem(row, 1, QTableWidgetItem(value_str))
+        
+        # Standard error
+        std_err = std_errors.get(param_name, float('nan'))
+        std_err_str = f"{std_err:.{decimal_places}f}" if not math.isnan(std_err) else ""
+        table.setItem(row, 2, QTableWidgetItem(std_err_str))
+        
+        # t-statistic
+        t_stat = t_stats.get(param_name, float('nan'))
+        t_stat_str = f"{t_stat:.{decimal_places}f}" if not math.isnan(t_stat) else ""
+        table.setItem(row, 3, QTableWidgetItem(t_stat_str))
+        
+        # p-value and significance
+        p_val = p_values.get(param_name, float('nan'))
+        if not math.isnan(p_val):
+            # Add significance stars if requested
+            sig_stars = ""
+            if show_significance:
+                for level, symbol in significance_levels.items():
+                    if p_val < level:
+                        sig_stars = symbol
+                        break
+            
+            p_val_str = f"{p_val:.{decimal_places}f}{sig_stars}"
+            item = QTableWidgetItem(p_val_str)
+            
+            # Highlight significant p-values
+            if p_val < 0.05:
+                item.setForeground(QColor(0, 0, 255))  # Blue for significant
+            elif p_val < 0.10:
+                item.setForeground(QColor(0, 0, 128))  # Dark blue for marginally significant
+            
+            table.setItem(row, 4, item)
+        else:
+            table.setItem(row, 4, QTableWidgetItem(""))
+        
+        row += 1
+    
+    # Resize columns to content
+    table.resizeColumnsToContents()
+    
+    # Set the table to stretch the last section
+    header = table.horizontalHeader()
+    header.setStretchLastSection(True)
 
 
 def create_statistics_table(statistics: Dict[str, Any], table: QTableWidget) -> None:

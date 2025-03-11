@@ -19,7 +19,20 @@ Key components:
 """
 
 import logging
+import sys
 from typing import Dict, List, Optional, Union, Any, Tuple, Set, Callable, Awaitable
+
+# Add compatibility layer for PyQt6
+try:
+    from PyQt6.QtWidgets import QAction
+except ImportError:
+    try:
+        from PyQt6.QtGui import QAction
+        import PyQt6.QtWidgets
+        # Add QAction to QtWidgets namespace for backward compatibility
+        PyQt6.QtWidgets.QAction = QAction
+    except ImportError:
+        logging.warning("PyQt6 not available. UI components will not function.")
 
 # Set up module-level logger
 logger = logging.getLogger("mfe.ui")
@@ -28,7 +41,17 @@ logger = logging.getLogger("mfe.ui")
 __version__ = "4.0.0"
 
 # Import main application class to make it available at the package level
-from .armax_app import ARMAXApp
+try:
+    from .armax_app import ARMAXApp
+except ImportError:
+    # Create a placeholder for ARMAXApp if it's not available
+    logger = logging.getLogger("mfe.ui")
+    logger.warning("ARMAXApp not available. UI functionality will be limited.")
+    
+    class ARMAXApp:
+        """Placeholder for ARMAXApp when it's not available."""
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError("ARMAXApp is not available in this installation.")
 
 # Import dialog components
 from .about_dialog import AboutDialog
@@ -43,6 +66,9 @@ from .utils import (
     create_parameter_table,
     create_results_table
 )
+
+# Import launch function
+# from .launch import launch_armax_app  # Commented out as this module doesn't exist
 
 # Initialize UI module
 def _initialize_ui() -> None:
@@ -105,48 +131,49 @@ def has_pyqt6() -> bool:
         return False
 
 
-# Launch the ARMAX application
-async def launch_armax_app(data: Optional[Any] = None) -> Optional[ARMAXApp]:
+# Define the launch_armax_app function directly in this module
+async def launch_armax_app(data=None):
     """
     Launch the ARMAX modeling application asynchronously.
     
     Args:
         data: Optional time series data to load into the application
-              (NumPy array or Pandas Series/DataFrame)
-    
+        
     Returns:
-        ARMAXApp instance if successful, None if PyQt6 is not available
-        or if the application fails to launch
-    
-    This function launches the ARMAX modeling application asynchronously,
-    allowing the UI to remain responsive during initialization and data loading.
+        Optional[ARMAXApp]: The ARMAX application instance if successful, None otherwise
+        
+    Raises:
+        ImportError: If PyQt6 is not available
+        RuntimeError: If the application fails to start
     """
+    # Check if PyQt6 is available
     if not has_pyqt6():
-        logger.error("Cannot launch ARMAX app: PyQt6 is not available")
-        return None
+        raise ImportError("PyQt6 is required to run the ARMAX application")
     
     try:
-        from PyQt6.QtWidgets import QApplication
-        import sys
+        # Initialize the UI module
+        _initialize_ui()
         
-        # Create QApplication instance if one doesn't exist
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
-        
-        # Create and show the ARMAX application
-        armax_app = ARMAXApp()
+        # Create and launch the application
+        app = ARMAXApp()
+        await app.initialize()
         
         # Load data if provided
         if data is not None:
-            await armax_app.load_data(data)
+            await app.load_data(data)
         
-        armax_app.show()
+        # Show the application window
+        app.show()
         
-        # Return the application instance
-        return armax_app
+        return app
+    
+    except NotImplementedError:
+        logger = logging.getLogger("mfe.ui")
+        logger.error("ARMAXApp is not available in this installation.")
+        return None
     except Exception as e:
-        logger.error(f"Failed to launch ARMAX app: {e}")
+        logger = logging.getLogger("mfe.ui")
+        logger.error(f"Failed to launch ARMAX application: {e}")
         return None
 
 

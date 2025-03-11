@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast, Type
 import numpy as np
 import pandas as pd
 import matplotlib
-matplotlib.use('Qt5Agg')  # Use Qt5Agg backend for matplotlib
+matplotlib.use('qt5agg')  # Use qt5agg backend for matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox, QComboBox,
     QTabWidget, QGroupBox, QSplitter, QFrame, QScrollArea, QSizePolicy, QTableWidget,
     QTableWidgetItem, QHeaderView, QProgressBar, QToolTip, QSlider, QAbstractSpinBox,
-    QStackedWidget, QTextEdit, QToolButton, QMenu, QAction
+    QStackedWidget, QTextEdit, QToolButton, QMenu, QAction, QLayout
 )
 
 from mfe.core.exceptions import UIError
@@ -1905,8 +1905,7 @@ class TabularDataView(QWidget):
                     self._filtered_data, 
                     key=lambda x: x[sort_idx] if sort_idx < len(x) else 0,
                     reverse=(self._sort_order == Qt.SortOrder.DescendingOrder)
-                )
-            )
+                ))
         elif isinstance(self._filtered_data, pd.DataFrame):
             # Sort DataFrame by column
             if self._sort_column < len(self._filtered_data.columns):
@@ -2253,3 +2252,609 @@ class TabularDataView(QWidget):
         # Select the row if it's on the current page
         if row_in_page < self.table.rowCount():
             self.table.selectRow(row_in_page)
+
+
+class ResultsTable(QTableWidget):
+    """
+    Widget for displaying model estimation results in a formatted table.
+    
+    This specialized table widget is designed to display parameter estimates,
+    standard errors, t-statistics, and p-values from model estimation results.
+    It includes features for formatting numbers, highlighting significant values,
+    and copying results to the clipboard.
+    
+    Attributes:
+        selection_changed: Signal emitted when the selection in the table changes
+        parameter_names: List of parameter names displayed in the table
+        parameter_values: Dictionary mapping parameter names to their values
+        standard_errors: Dictionary mapping parameter names to their standard errors
+        parameterSelected: Signal emitted when a parameter row is selected
+    """
+    
+    parameterSelected = pyqtSignal(str)  # Emits parameter name when selected
+    
+    def __init__(
+        self, 
+        parent: Optional[QWidget] = None,
+        title: str = "Estimation Results",
+        show_header: bool = True,
+        show_significance: bool = True,
+        decimals: int = 4
+    ):
+        """
+        Initialize the ResultsTable widget.
+        
+        Args:
+            parent: Parent widget
+            title: Title for the results table
+            show_header: Whether to show the table header
+            show_significance: Whether to show significance stars
+            decimals: Number of decimal places to display
+        """
+        super().__init__(parent)
+        
+        self._title = title
+        self._show_header = show_header
+        self._show_significance = show_significance
+        self._decimals = decimals
+        self._results = {}  # Dictionary to store results data
+        
+        # Set up the layout
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create title label if needed
+        if self._show_header:
+            self._title_label = QLabel(self._title)
+            self._title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            font = self._title_label.font()
+            font.setBold(True)
+            self._title_label.setFont(font)
+            self._layout.addWidget(self._title_label)
+        
+        # Create table widget
+        self._table = QTableWidget(0, 4, self)  # 4 columns: Parameter, Estimate, Std Error, t-stat
+        self._table.setHorizontalHeaderLabels(["Parameter", "Estimate", "Std Error", "t-stat"])
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.verticalHeader().setVisible(False)
+        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self._table.setAlternatingRowColors(True)
+        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._table.itemSelectionChanged.connect(self._on_selection_changed)
+        
+        self._layout.addWidget(self._table)
+    
+    def _on_selection_changed(self) -> None:
+        """Handle selection changes in the table."""
+        selected_items = self._table.selectedItems()
+        if selected_items:
+            row = selected_items[0].row()
+            parameter_item = self._table.item(row, 0)
+            if parameter_item:
+                self.parameterSelected.emit(parameter_item.text())
+    
+    def setResults(self, results: Dict[str, Dict[str, Any]]) -> None:
+        """
+        Set the results data to display in the table.
+        
+        Args:
+            results: Dictionary mapping parameter names to dictionaries with keys
+                    'estimate', 'std_error', 't_stat', and optionally 'p_value'
+        """
+        self._results = results
+        self._update_table()
+    
+    def _update_table(self) -> None:
+        """Update the table with current results data."""
+        self._table.setRowCount(0)  # Clear existing rows
+        
+        # Add rows for each parameter
+        for param_name, param_data in self._results.items():
+            row = self._table.rowCount()
+            self._table.insertRow(row)
+            
+            # Parameter name
+            name_item = QTableWidgetItem(param_name)
+            self._table.setItem(row, 0, name_item)
+            
+            # Estimate
+            estimate = param_data.get('estimate', 0.0)
+            estimate_str = f"{estimate:.{self._decimals}f}"
+            if self._show_significance:
+                p_value = param_data.get('p_value', 1.0)
+                # Add significance stars
+                if p_value < 0.01:
+                    estimate_str += " ***"
+                elif p_value < 0.05:
+                    estimate_str += " **"
+                elif p_value < 0.1:
+                    estimate_str += " *"
+            
+            estimate_item = QTableWidgetItem(estimate_str)
+            estimate_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self._table.setItem(row, 1, estimate_item)
+            
+            # Standard error
+            std_error = param_data.get('std_error', 0.0)
+            std_error_item = QTableWidgetItem(f"{std_error:.{self._decimals}f}")
+            std_error_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self._table.setItem(row, 2, std_error_item)
+            
+            # t-statistic
+            t_stat = param_data.get('t_stat', 0.0)
+            t_stat_item = QTableWidgetItem(f"{t_stat:.{self._decimals}f}")
+            t_stat_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self._table.setItem(row, 3, t_stat_item)
+            
+            # Highlight significant parameters
+            if self._show_significance:
+                p_value = param_data.get('p_value', 1.0)
+                if p_value < 0.05:
+                    for col in range(4):
+                        item = self._table.item(row, col)
+                        if item:
+                            item.setForeground(QColor(0, 0, 200))  # Blue for significant
+    
+    def setTitle(self, title: str) -> None:
+        """
+        Set the title of the results table.
+        
+        Args:
+            title: New title for the results table
+        """
+        self._title = title
+        if self._show_header:
+            self._title_label.setText(title)
+    
+    def setShowSignificance(self, show: bool) -> None:
+        """
+        Set whether to show significance stars.
+        
+        Args:
+            show: Whether to show significance stars
+        """
+        self._show_significance = show
+        self._update_table()
+    
+    def setDecimals(self, decimals: int) -> None:
+        """
+        Set the number of decimal places to display.
+        
+        Args:
+            decimals: Number of decimal places
+        """
+        self._decimals = max(0, decimals)
+        self._update_table()
+    
+    def clear(self) -> None:
+        """Clear all results data."""
+        self._results = {}
+        self._table.setRowCount(0)
+
+
+class EquationLabel(QWidget):
+    """
+    Widget for displaying mathematical equations using LaTeX rendering.
+    
+    This widget renders LaTeX equations as images and displays them in a QLabel.
+    It supports automatic resizing, dark mode, and customization of font size and colors.
+    
+    Attributes:
+        equation: The LaTeX equation string
+        font_size: Font size for the equation
+        dpi: DPI for rendering the equation
+        dark_mode: Whether to use dark mode colors
+    """
+    
+    def __init__(self, 
+                equation: str = "", 
+                font_size: int = 12, 
+                dpi: int = 100,
+                dark_mode: bool = False,
+                parent: Optional[QWidget] = None) -> None:
+        """
+        Initialize the EquationLabel widget.
+        
+        Args:
+            equation: LaTeX equation string
+            font_size: Font size for the equation
+            dpi: DPI for rendering the equation
+            dark_mode: Whether to use dark mode colors
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        
+        # Initialize attributes
+        self.equation = equation
+        self.font_size = font_size
+        self.dpi = dpi
+        self.dark_mode = dark_mode
+        
+        # Create layout
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create label for displaying the equation
+        self.label = QLabel(self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.layout.addWidget(self.label)
+        
+        # Render the equation if provided
+        if equation:
+            self.set_equation(equation)
+    
+    def set_equation(self, equation: str) -> None:
+        """
+        Set the equation to display.
+        
+        Args:
+            equation: LaTeX equation string
+        """
+        self.equation = equation
+        self._render_equation()
+    
+    def set_font_size(self, size: int) -> None:
+        """
+        Set the font size for the equation.
+        
+        Args:
+            size: Font size
+        """
+        self.font_size = size
+        self._render_equation()
+    
+    def set_dpi(self, dpi: int) -> None:
+        """
+        Set the DPI for rendering the equation.
+        
+        Args:
+            dpi: DPI value
+        """
+        self.dpi = dpi
+        self._render_equation()
+    
+    def set_dark_mode(self, dark_mode: bool) -> None:
+        """
+        Set whether to use dark mode colors.
+        
+        Args:
+            dark_mode: Whether to use dark mode
+        """
+        self.dark_mode = dark_mode
+        self._render_equation()
+    
+    def _render_equation(self) -> None:
+        """Render the equation and display it in the label."""
+        if not self.equation:
+            self.label.clear()
+            return
+        
+        # Format the equation for LaTeX
+        formatted_equation = format_latex_equation(self.equation)
+        
+        # Create a figure with the equation
+        fig = create_equation_figure(
+            formatted_equation, 
+            font_size=self.font_size, 
+            dpi=self.dpi, 
+            dark_mode=self.dark_mode
+        )
+        
+        # Convert the figure to a QPixmap
+        canvas = FigureCanvas(fig)
+        canvas.draw()
+        width, height = fig.get_size_inches() * fig.get_dpi()
+        image = canvas.grab().toImage()
+        pixmap = QPixmap.fromImage(image)
+        
+        # Set the pixmap to the label
+        self.label.setPixmap(pixmap)
+        self.label.setMinimumSize(int(width), int(height))
+        
+        # Clean up
+        plt.close(fig)
+    
+    def resizeEvent(self, event: QEvent) -> None:
+        """
+        Handle resize events to adjust the equation size.
+        
+        Args:
+            event: Resize event
+        """
+        super().resizeEvent(event)
+        
+        # Recalculate font size based on widget size
+        if self.width() > 0 and self.height() > 0:
+            optimal_size = calculate_optimal_font_size(
+                self.equation, 
+                self.width(), 
+                self.height()
+            )
+            if optimal_size != self.font_size:
+                self.font_size = optimal_size
+                self._render_equation()
+
+
+class DiagnosticPlot(QWidget):
+    """
+    Widget for displaying diagnostic plots for statistical models.
+    
+    This widget provides a container for matplotlib plots used for model diagnostics,
+    such as residual plots, QQ plots, ACF/PACF plots, and other diagnostic visualizations.
+    It includes a toolbar for interacting with the plots and options for customization.
+    
+    Attributes:
+        figure: Matplotlib figure object
+        canvas: FigureCanvas for displaying the figure
+        toolbar: NavigationToolbar for interacting with the figure
+        dark_mode: Whether to use dark mode colors
+    """
+    
+    def __init__(self, 
+                 plot_type: str = "residual",
+                 dark_mode: bool = False,
+                 parent: Optional[QWidget] = None) -> None:
+        """
+        Initialize the DiagnosticPlot widget.
+        
+        Args:
+            plot_type: Type of diagnostic plot ("residual", "qq", "acf", "pacf", "histogram", "custom")
+            dark_mode: Whether to use dark mode colors
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        
+        # Initialize attributes
+        self.plot_type = plot_type
+        self.dark_mode = dark_mode
+        
+        # Create matplotlib figure and canvas
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        
+        # Set up dark mode if enabled
+        if dark_mode:
+            self.figure.patch.set_facecolor("#2D2D30")
+            plt.style.use("dark_background")
+        
+        # Create layout
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(self.toolbar)
+        self.layout.addWidget(self.canvas)
+        
+        # Create initial empty plot
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_title(f"{plot_type.capitalize()} Plot")
+        self.canvas.draw()
+    
+    def plot_residuals(self, 
+                      residuals: np.ndarray, 
+                      standardized: bool = True,
+                      fitted_values: Optional[np.ndarray] = None,
+                      dates: Optional[np.ndarray] = None) -> None:
+        """
+        Plot model residuals.
+        
+        Args:
+            residuals: Array of residuals
+            standardized: Whether the residuals are standardized
+            fitted_values: Array of fitted values (for residuals vs. fitted plot)
+            dates: Array of dates for time series plots
+        """
+        self.figure.clear()
+        
+        if fitted_values is not None:
+            # Residuals vs. fitted values plot
+            ax = self.figure.add_subplot(111)
+            ax.scatter(fitted_values, residuals, alpha=0.5)
+            ax.axhline(y=0, color='r', linestyle='-', alpha=0.3)
+            ax.set_xlabel("Fitted Values")
+            ax.set_ylabel("Residuals" if not standardized else "Standardized Residuals")
+            ax.set_title("Residuals vs. Fitted Values")
+            
+            # Add a lowess smoother if available
+            try:
+                from statsmodels.nonparametric.smoothers_lowess import lowess
+                z = lowess(residuals, fitted_values, frac=0.3)
+                ax.plot(z[:, 0], z[:, 1], 'r-', lw=1)
+            except ImportError:
+                pass
+        
+        elif dates is not None:
+            # Time series plot of residuals
+            ax = self.figure.add_subplot(111)
+            ax.plot(dates, residuals, 'o-', alpha=0.5, markersize=2)
+            ax.axhline(y=0, color='r', linestyle='-', alpha=0.3)
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Residuals" if not standardized else "Standardized Residuals")
+            ax.set_title("Residuals Over Time")
+            
+            # Format x-axis as dates if possible
+            try:
+                from matplotlib.dates import DateFormatter
+                ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+                self.figure.autofmt_xdate()
+            except:
+                pass
+        
+        else:
+            # Simple residual plot
+            ax = self.figure.add_subplot(111)
+            ax.plot(residuals, 'o-', alpha=0.5, markersize=2)
+            ax.axhline(y=0, color='r', linestyle='-', alpha=0.3)
+            ax.set_xlabel("Observation")
+            ax.set_ylabel("Residuals" if not standardized else "Standardized Residuals")
+            ax.set_title("Residuals")
+        
+        self.canvas.draw()
+    
+    def plot_qq(self, 
+               data: np.ndarray, 
+               dist: str = "norm",
+               fit: bool = True) -> None:
+        """
+        Create a QQ plot for the data.
+        
+        Args:
+            data: Array of data to plot
+            dist: Distribution to compare against ("norm", "t", "chi2", etc.)
+            fit: Whether to fit the distribution to the data
+        """
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        
+        # Create QQ plot
+        try:
+            from statsmodels.graphics.gofplots import qqplot
+            qqplot(data, dist=dist, fit=fit, line="45", ax=ax)
+            ax.set_title(f"QQ Plot ({dist.capitalize()} Distribution)")
+        except ImportError:
+            # Fallback to a simple implementation
+            data_sorted = np.sort(data)
+            n = len(data_sorted)
+            
+            if dist == "norm":
+                from scipy.stats import norm
+                theoretical_quantiles = norm.ppf(np.arange(1, n + 1) / (n + 1))
+                ax.scatter(theoretical_quantiles, data_sorted)
+                
+                # Add 45-degree line
+                min_val = min(np.min(theoretical_quantiles), np.min(data_sorted))
+                max_val = max(np.max(theoretical_quantiles), np.max(data_sorted))
+                ax.plot([min_val, max_val], [min_val, max_val], 'r-')
+                
+                ax.set_xlabel("Theoretical Quantiles")
+                ax.set_ylabel("Sample Quantiles")
+                ax.set_title("Normal QQ Plot")
+            else:
+                ax.text(0.5, 0.5, f"QQ plot for {dist} distribution not available\nwithout statsmodels",
+                       ha='center', va='center', transform=ax.transAxes)
+        
+        self.canvas.draw()
+    
+    def plot_acf_pacf(self, 
+                     data: np.ndarray, 
+                     lags: int = 20,
+                     alpha: float = 0.05) -> None:
+        """
+        Create ACF and PACF plots for the data.
+        
+        Args:
+            data: Array of data to plot
+            lags: Number of lags to include
+            alpha: Significance level for confidence intervals
+        """
+        self.figure.clear()
+        
+        try:
+            from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+            
+            # Create ACF plot
+            ax1 = self.figure.add_subplot(211)
+            plot_acf(data, lags=lags, alpha=alpha, ax=ax1)
+            ax1.set_title("Autocorrelation Function")
+            
+            # Create PACF plot
+            ax2 = self.figure.add_subplot(212)
+            plot_pacf(data, lags=lags, alpha=alpha, ax=ax2)
+            ax2.set_title("Partial Autocorrelation Function")
+            
+            self.figure.tight_layout()
+        except ImportError:
+            # Fallback to a simple implementation
+            ax = self.figure.add_subplot(111)
+            ax.text(0.5, 0.5, "ACF/PACF plots require statsmodels",
+                   ha='center', va='center', transform=ax.transAxes)
+        
+        self.canvas.draw()
+    
+    def plot_histogram(self, 
+                      data: np.ndarray, 
+                      bins: int = 30,
+                      density: bool = True,
+                      fit_dist: bool = True) -> None:
+        """
+        Create a histogram of the data with optional distribution fit.
+        
+        Args:
+            data: Array of data to plot
+            bins: Number of bins for the histogram
+            density: Whether to normalize the histogram
+            fit_dist: Whether to fit a normal distribution to the data
+        """
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        
+        # Create histogram
+        ax.hist(data, bins=bins, density=density, alpha=0.6)
+        
+        # Fit normal distribution if requested
+        if fit_dist:
+            from scipy.stats import norm
+            mu, sigma = norm.fit(data)
+            x = np.linspace(min(data), max(data), 100)
+            y = norm.pdf(x, mu, sigma)
+            ax.plot(x, y, 'r-', lw=2, label=f'Normal: $\\mu={mu:.2f}$, $\\sigma={sigma:.2f}$')
+            ax.legend()
+        
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Density" if density else "Frequency")
+        ax.set_title("Histogram")
+        
+        self.canvas.draw()
+    
+    def clear(self) -> None:
+        """Clear the current plot."""
+        self.figure.clear()
+        self.ax = self.figure.add_subplot(111)
+        self.canvas.draw()
+    
+    def save_figure(self, filename: str, dpi: int = 300) -> None:
+        """
+        Save the current figure to a file.
+        
+        Args:
+            filename: Name of the file to save to
+            dpi: DPI for the saved figure
+        """
+        self.figure.savefig(filename, dpi=dpi, bbox_inches='tight')
+    
+    def set_dark_mode(self, dark_mode: bool) -> None:
+        """
+        Set whether to use dark mode colors.
+        
+        Args:
+            dark_mode: Whether to use dark mode
+        """
+        self.dark_mode = dark_mode
+        
+        if dark_mode:
+            self.figure.patch.set_facecolor("#2D2D30")
+            plt.style.use("dark_background")
+        else:
+            self.figure.patch.set_facecolor("white")
+            plt.style.use("default")
+        
+        self.canvas.draw()
+
+
+class PlotCanvas(FigureCanvas):
+    """
+    Custom FigureCanvas for plotting.
+    
+    This class extends FigureCanvas to add custom plotting functionality.
+    """
+    
+    def __init__(self, figure):
+        super().__init__(figure)
+        self.setParent(self)
+
+
+# Alias for backward compatibility
+ProgressIndicator = AsyncProgressIndicator

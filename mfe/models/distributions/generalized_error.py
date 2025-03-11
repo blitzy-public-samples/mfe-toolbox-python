@@ -671,3 +671,8 @@ def gedloglik(x: np.ndarray, nu: float) -> float:
     
     # Use the JIT-compiled function for computation
     return _ged_loglikelihood(x, nu)
+
+
+# Create aliases for backward compatibility
+GEDDistribution = GED
+GEDParams = GEDParameters

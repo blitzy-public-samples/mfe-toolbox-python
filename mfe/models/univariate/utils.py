@@ -16,7 +16,7 @@ import logging
 import warnings
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union, cast, overload
 import numpy as np
-from numba import jit
+from numba import jit, float64
 from scipy import optimize, stats
 
 from mfe.core.parameters import (
@@ -63,6 +63,35 @@ def _compute_backcast_numba(data: np.ndarray, decay: float = 0.94) -> float:
     for i in range(n):
         backcast += weights[i] * data[i] ** 2
 
+    return backcast
+
+
+@jit(float64(float64[:], float64), nopython=True, cache=True)
+def _compute_backcast_numba(data, decay):
+    """Compute a variance backcast using exponential smoothing.
+    
+    Args:
+        data: Input data (typically squared returns)
+        decay: Decay factor for exponential smoothing
+    
+    Returns:
+        float: Backcast value
+    """
+    n = len(data)
+    weights = np.ones(n)
+    
+    # Compute exponentially decaying weights
+    for i in range(1, n):
+        weights[i] = weights[i-1] * decay
+    
+    # Normalize weights to sum to 1
+    weights = weights / np.sum(weights)
+    
+    # Compute weighted average
+    backcast = 0.0
+    for i in range(n):
+        backcast += weights[n-i-1] * data[i]
+    
     return backcast
 
 
@@ -151,6 +180,86 @@ def compute_backcast(data: np.ndarray, method: str = "exponential", **kwargs: An
 
     else:
         raise ValueError(f"Unknown method: {method}. Supported methods are 'simple', 'exponential', and 'garch'.")
+
+
+def backcast_variance(data: np.ndarray, 
+                     model_type: str = "garch", 
+                     persistence: Optional[float] = None, 
+                     power: float = 2.0) -> float:
+    """
+    Compute a model-specific backcast value for initializing variance processes.
+    
+    This function computes an appropriate backcast value for initializing the
+    conditional variance process in different volatility models. It takes into
+    account the specific characteristics of each model type.
+    
+    Args:
+        data: Input data (typically residuals)
+        model_type: Type of volatility model ("garch", "egarch", "tarch", "aparch", etc.)
+        persistence: Model persistence parameter (alpha + beta for GARCH)
+        power: Power parameter for models like APARCH
+    
+    Returns:
+        float: Backcast value for initializing the variance process
+    
+    Raises:
+        ValueError: If the model type is not recognized or if data is invalid
+        
+    Examples:
+        >>> import numpy as np
+        >>> from mfe.models.univariate.utils import backcast_variance
+        >>> data = np.random.normal(0, 1, 100)
+        >>> backcast_garch = backcast_variance(data, model_type="garch", persistence=0.95)
+        >>> backcast_egarch = backcast_variance(data, model_type="egarch")
+    """
+    # Validate input data
+    if not isinstance(data, np.ndarray):
+        data = np.asarray(data)
+
+    if data.ndim != 1:
+        raise ValueError(f"data must be a 1-dimensional array, got shape {data.shape}")
+
+    if len(data) == 0:
+        raise ValueError("data must not be empty")
+    
+    # Default persistence if not provided
+    if persistence is None:
+        persistence = 0.94
+    
+    # Validate persistence
+    if not 0 <= persistence <= 1:
+        raise ValueError(f"persistence must be between 0 and 1, got {persistence}")
+    
+    # Compute model-specific backcast
+    model_type = model_type.lower()
+    
+    if model_type in ["garch", "igarch", "figarch"]:
+        # For GARCH-type models, use GARCH-consistent backcast
+        return compute_backcast(data, method="garch", persistence=persistence)
+    
+    elif model_type == "egarch":
+        # For EGARCH, compute backcast for log-variance
+        # First, compute variance backcast
+        variance_backcast = compute_backcast(data, method="exponential", decay=persistence)
+        
+        # Convert to log-variance, with a small constant to avoid log(0)
+        return np.log(max(variance_backcast, 1e-6))
+    
+    elif model_type == "tarch":
+        # For TARCH, use standard GARCH backcast
+        return compute_backcast(data, method="garch", persistence=persistence)
+    
+    elif model_type == "aparch":
+        # For APARCH, compute backcast for power-transformed variance
+        # First, compute absolute returns raised to power
+        abs_returns_power = np.abs(data) ** power
+        
+        # Then compute backcast using these transformed returns
+        return compute_backcast(abs_returns_power, method="exponential", decay=persistence)
+    
+    else:
+        # For unknown models, use simple exponential backcast
+        return compute_backcast(data, method="exponential", decay=persistence)
 
 
 @jit(nopython=True, cache=True)
@@ -650,54 +759,159 @@ def compute_half_life(persistence: float) -> float:
 
 def compute_unconditional_variance(parameters: UnivariateVolatilityParameters) -> float:
     """
-    Compute the unconditional variance of a volatility model.
-
-    This function computes the long-run or unconditional variance implied by
-    the parameters of a volatility model.
-
+    Compute the unconditional variance for a volatility model.
+    
+    This function computes the long-run unconditional variance implied by the
+    parameters of a volatility model, which represents the steady-state level
+    of volatility to which the process reverts.
+    
     Args:
-        parameters: Model parameters
-
+        parameters: Volatility model parameters
+        
     Returns:
         float: Unconditional variance
-
+        
     Raises:
-        TypeError: If the parameter type is not recognized
-        ValueError: If the model is not stationary (persistence >= 1)
-
-    Examples:
-        >>> from mfe.core.parameters import GARCHParameters
-        >>> from mfe.models.univariate.utils import compute_unconditional_variance
-        >>> params = GARCHParameters(omega=0.05, alpha=0.1, beta=0.85)
-        >>> uncond_var = compute_unconditional_variance(params)
-        >>> print(f"Unconditional variance: {uncond_var:.4f}")
-        Unconditional variance: 1.0000
+        NumericError: If the model is non-stationary or parameters are invalid
+        TypeError: If parameters is not a recognized volatility parameter type
     """
-    # Compute persistence
-    persistence = compute_persistence(parameters)
+    try:
+        # Validate parameters
+        validate_volatility_parameters(parameters)
+        
+        # Compute persistence
+        persistence = compute_persistence(parameters)
+        
+        # Check stationarity
+        if persistence >= 1.0:
+            raise NumericError(
+                f"Cannot compute unconditional variance for non-stationary model with persistence {persistence:.4f}"
+            )
+        
+        # Compute unconditional variance based on model type
+        if isinstance(parameters, GARCHParameters):
+            return parameters.omega / (1.0 - persistence)
+        elif isinstance(parameters, EGARCHParameters):
+            # For EGARCH, unconditional variance is more complex due to log formulation
+            # This is an approximation
+            return np.exp(parameters.omega / (1.0 - persistence))
+        elif isinstance(parameters, TARCHParameters):
+            # For TARCH, need to account for asymmetry effect
+            # Assuming standard normal innovations, E[|z_t|] = sqrt(2/pi)
+            expected_abs_z = np.sqrt(2.0 / np.pi)
+            gamma_term = 0.5 * parameters.gamma * expected_abs_z
+            return parameters.omega / (1.0 - parameters.beta - parameters.alpha - gamma_term)
+        elif isinstance(parameters, APARCHParameters):
+            # For APARCH, need to account for power transformation and asymmetry
+            # This is an approximation
+            expected_term = np.exp(0.5 * np.log(2.0) + 0.5 * np.log(1.0 / np.pi))
+            gamma_term = parameters.gamma * expected_term
+            return (parameters.omega / (1.0 - parameters.beta - parameters.alpha * expected_term - gamma_term)) ** (2.0 / parameters.delta)
+        else:
+            raise TypeError(f"Unsupported parameter type: {type(parameters)}")
+    except Exception as e:
+        if isinstance(e, NumericError):
+            raise
+        raise NumericError(f"Error computing unconditional variance: {str(e)}")
 
-    # Check stationarity
-    if persistence >= 1:
-        raise ValueError(f"Model is not stationary (persistence = {persistence} >= 1)")
 
-    if isinstance(parameters, GARCHParameters):
-        # For GARCH, unconditional variance is omega / (1 - persistence)
-        return parameters.omega / (1 - persistence)
+def volatility_process_to_variance(volatility_process: np.ndarray, power: float = 2.0) -> np.ndarray:
+    """
+    Convert a volatility process to variance process.
+    
+    This function converts a volatility process (e.g., conditional standard deviations)
+    to a variance process (conditional variances) by raising the volatility to the
+    specified power. This is particularly useful for models like APARCH where the
+    power parameter may not be 2.
+    
+    Args:
+        volatility_process: Array of volatility values (e.g., conditional standard deviations)
+        power: Power to raise the volatility to (default is 2.0 for variance)
+    
+    Returns:
+        np.ndarray: Variance process (volatility raised to the specified power)
+    
+    Raises:
+        ValueError: If the volatility process contains negative values
+        
+    Examples:
+        >>> import numpy as np
+        >>> from mfe.models.univariate.utils import volatility_process_to_variance
+        >>> vol = np.array([0.1, 0.2, 0.15])
+        >>> volatility_process_to_variance(vol)
+        array([0.01, 0.04, 0.0225])
+        
+        >>> volatility_process_to_variance(vol, power=1.0)  # No change
+        array([0.1, 0.2, 0.15])
+        
+        >>> volatility_process_to_variance(vol, power=0.5)  # Square root
+        array([0.31622777, 0.4472136, 0.38729833])
+    """
+    # Validate input
+    if not isinstance(volatility_process, np.ndarray):
+        volatility_process = np.asarray(volatility_process)
+    
+    if volatility_process.ndim != 1:
+        raise ValueError(f"volatility_process must be a 1-dimensional array, got shape {volatility_process.shape}")
+    
+    if len(volatility_process) == 0:
+        raise ValueError("volatility_process must not be empty")
+    
+    if np.any(volatility_process < 0):
+        raise ValueError("volatility_process must contain non-negative values")
+    
+    # Convert volatility to variance
+    return np.power(volatility_process, power)
 
-    elif isinstance(parameters, EGARCHParameters):
-        # For EGARCH, unconditional variance is exp(omega / (1 - beta))
-        return np.exp(parameters.omega / (1 - parameters.beta))
 
-    elif isinstance(parameters, TARCHParameters):
-        # For TARCH, unconditional variance is omega / (1 - persistence)
-        return parameters.omega / (1 - persistence)
-
-    elif isinstance(parameters, APARCHParameters):
-        # For APARCH, unconditional variance is (omega / (1 - persistence))^(2/delta)
-        return (parameters.omega / (1 - persistence)) ** (2 / parameters.delta)
-
-    else:
-        raise TypeError(f"Unsupported parameter type: {type(parameters)}")
+def variance_to_volatility_process(variance_process: np.ndarray, power: float = 2.0) -> np.ndarray:
+    """
+    Convert a variance process to volatility process.
+    
+    This function converts a variance process (e.g., conditional variances)
+    to a volatility process (conditional standard deviations) by taking the
+    appropriate root of the variance. This is particularly useful for models
+    like APARCH where the power parameter may not be 2.
+    
+    Args:
+        variance_process: Array of variance values (e.g., conditional variances)
+        power: Power to which the volatility was raised to get the variance (default is 2.0)
+    
+    Returns:
+        np.ndarray: Volatility process (variance raised to the power of 1/power)
+    
+    Raises:
+        ValueError: If the variance process contains negative values
+        
+    Examples:
+        >>> import numpy as np
+        >>> from mfe.models.univariate.utils import variance_to_volatility_process
+        >>> var = np.array([0.01, 0.04, 0.0225])
+        >>> variance_to_volatility_process(var)
+        array([0.1, 0.2, 0.15])
+        
+        >>> variance_to_volatility_process(var, power=1.0)  # No change
+        array([0.01, 0.04, 0.0225])
+        
+        >>> var_pow = np.array([0.31622777, 0.4472136, 0.38729833])
+        >>> variance_to_volatility_process(var_pow, power=0.5)
+        array([0.1, 0.2, 0.15])
+    """
+    # Validate input
+    if not isinstance(variance_process, np.ndarray):
+        variance_process = np.asarray(variance_process)
+    
+    if variance_process.ndim != 1:
+        raise ValueError(f"variance_process must be a 1-dimensional array, got shape {variance_process.shape}")
+    
+    if len(variance_process) == 0:
+        raise ValueError("variance_process must not be empty")
+    
+    if np.any(variance_process < 0):
+        raise ValueError("variance_process must contain non-negative values")
+    
+    # Convert variance to volatility
+    return np.power(variance_process, 1.0 / power)
 
 
 def compute_news_impact_curve(parameters: UnivariateVolatilityParameters,
@@ -1571,6 +1785,7 @@ def simulate_volatility_path(parameters: Union[Dict[str, Any], UnivariateVolatil
 
             # Generate return
             returns[t] = np.sqrt(variances[t]) * random_values[t]
+
     elif model_type == "aparch":
         # Initialize arrays
         returns = np.zeros(n_periods)
@@ -1595,12 +1810,419 @@ def simulate_volatility_path(parameters: Union[Dict[str, Any], UnivariateVolatil
             # Generate return
             returns[t] = np.sqrt(variance) * random_values[t]
 
-        # Convert power variances to variances
-        variances = power_variances ** (2 / delta)
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
     return returns, variances
+
+
+def simulate_univariate_volatility(
+    T: int,
+    model_type: str = "garch",
+    params: Optional[Dict[str, float]] = None,
+    dist_type: str = "normal",
+    dist_params: Optional[Dict[str, float]] = None,
+    initial_value: Optional[float] = None,
+    burn_in: int = 500,
+    seed: Optional[int] = None
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Simulate data from a univariate volatility model.
+    
+    This function simulates returns and conditional variances from various
+    univariate volatility models, including GARCH, EGARCH, TARCH, and APARCH.
+    
+    Args:
+        T: Number of observations to simulate
+        model_type: Type of volatility model ("garch", "egarch", "tarch", "aparch", etc.)
+        params: Dictionary of model parameters (e.g., {"omega": 0.1, "alpha": 0.1, "beta": 0.8})
+        dist_type: Distribution type for innovations ("normal", "t", "skewt", "ged")
+        dist_params: Dictionary of distribution parameters (e.g., {"df": 5} for t-distribution)
+        initial_value: Initial value for the variance process
+        burn_in: Number of burn-in observations to discard
+        seed: Random seed for reproducibility
+    
+    Returns:
+        Tuple[np.ndarray, np.ndarray, np.ndarray]: Simulated returns, conditional variances, and standardized innovations
+    
+    Raises:
+        ValueError: If the model type is not recognized or if parameters are invalid
+        
+    Examples:
+        >>> import numpy as np
+        >>> from mfe.models.univariate.utils import simulate_univariate_volatility
+        >>> returns, variances, innovations = simulate_univariate_volatility(
+        ...     T=1000,
+        ...     model_type="garch",
+        ...     params={"omega": 0.05, "alpha": 0.1, "beta": 0.8},
+        ...     dist_type="normal"
+        ... )
+    """
+    # Set random seed if provided
+    if seed is not None:
+        np.random.seed(seed)
+    
+    # Set default parameters if not provided
+    if params is None:
+        if model_type.lower() == "garch":
+            params = {"omega": 0.05, "alpha": 0.1, "beta": 0.8}
+        elif model_type.lower() == "egarch":
+            params = {"omega": -0.1, "alpha": 0.1, "gamma": 0.05, "beta": 0.9}
+        elif model_type.lower() == "tarch":
+            params = {"omega": 0.05, "alpha": 0.05, "gamma": 0.1, "beta": 0.8}
+        elif model_type.lower() == "aparch":
+            params = {"omega": 0.05, "alpha": 0.05, "gamma": 0.1, "beta": 0.8, "delta": 1.5}
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
+    
+    # Set default distribution parameters if not provided
+    if dist_params is None:
+        if dist_type.lower() == "normal":
+            dist_params = {}
+        elif dist_type.lower() == "t":
+            dist_params = {"df": 5}
+        elif dist_type.lower() == "skewt":
+            dist_params = {"df": 5, "skew": 0.9}
+        elif dist_type.lower() == "ged":
+            dist_params = {"nu": 1.5}
+        else:
+            raise ValueError(f"Unknown distribution type: {dist_type}")
+    
+    # Generate innovations based on the specified distribution
+    total_length = T + burn_in
+    
+    if dist_type.lower() == "normal":
+        innovations = np.random.normal(0, 1, total_length)
+    elif dist_type.lower() == "t":
+        df = dist_params.get("df", 5)
+        innovations = np.random.standard_t(df, total_length) / np.sqrt(df / (df - 2))
+    elif dist_type.lower() == "skewt":
+        # Simple approximation of skewed t-distribution
+        df = 5.0  # Default degrees of freedom
+        skew = 0.5  # Default skewness parameter
+
+        # Generate t-distributed random values
+        t_values = np.random.standard_t(df, total_length)
+
+        # Apply skewness transformation
+        random_values = np.zeros_like(t_values)
+        mask = t_values < 0
+        random_values[mask] = skew * t_values[mask]
+        random_values[~mask] = (1 / skew) * t_values[~mask]
+
+        # Scale to have unit variance
+        random_values = random_values / np.std(random_values)
+    elif dist_type.lower() == "ged":
+        nu = dist_params.get("nu", 1.5)
+        # Generate GED innovations (simplified approach)
+        u = np.random.normal(0, 1, total_length)
+        innovations = np.sign(u) * np.abs(u)**(1/nu) * np.sqrt(gamma_function(1/nu) / gamma_function(3/nu))
+    else:
+        raise ValueError(f"Unknown distribution type: {dist_type}")
+    
+    # Initialize arrays for returns and variances
+    returns = np.zeros(total_length)
+    variances = np.zeros(total_length)
+    
+    # Set initial variance
+    if initial_value is None:
+        initial_value = params.get("omega", 0.05) / (1 - params.get("alpha", 0.1) - params.get("beta", 0.8))
+    
+    variances[0] = initial_value
+    
+    # Simulate the process based on the model type
+    model_type = model_type.lower()
+    
+    if model_type == "garch":
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.1)
+        beta = params.get("beta", 0.8)
+        
+        for t in range(1, total_length):
+            variances[t] = omega + alpha * returns[t-1]**2 + beta * variances[t-1]
+            returns[t] = np.sqrt(variances[t]) * innovations[t]
+    
+    elif model_type == "egarch":
+        omega = params.get("omega", -0.1)
+        alpha = params.get("alpha", 0.1)
+        gamma = params.get("gamma", 0.05)
+        beta = params.get("beta", 0.9)
+        
+        # For EGARCH, we work with log-variances
+        log_variances = np.zeros(total_length)
+        log_variances[0] = np.log(initial_value)
+        
+        for t in range(1, total_length):
+            # Compute standardized innovation
+            if t == 1:
+                z = innovations[0]
+            else:
+                z = returns[t-1] / np.sqrt(variances[t-1])
+            
+            # Update log-variance
+            log_variances[t] = omega + beta * log_variances[t-1] + \
+                alpha * (abs(z) - np.sqrt(2/np.pi)) + gamma * z
+            
+            # Convert to variance
+            variances[t] = np.exp(log_variances[t])
+            
+            # Generate return
+            returns[t] = np.sqrt(variances[t]) * innovations[t]
+    
+    elif model_type == "tarch":
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.05)
+        gamma = params.get("gamma", 0.1)
+        beta = params.get("beta", 0.8)
+        
+        for t in range(1, total_length):
+            # Asymmetric term: I(r_{t-1} < 0)
+            asym = 1 if returns[t-1] < 0 else 0
+            
+            # Update variance
+            variances[t] = omega + alpha * returns[t-1]**2 + gamma * returns[t-1]**2 * asym + beta * variances[t-1]
+            
+            # Generate return
+            returns[t] = np.sqrt(variances[t]) * innovations[t]
+    
+    elif model_type == "aparch":
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.05)
+        gamma = params.get("gamma", 0.1)
+        beta = params.get("beta", 0.8)
+        delta = params.get("delta", 1.5)
+        
+        # For APARCH, we work with power-transformed variances
+        power_variances = np.zeros(total_length)
+        power_variances[0] = initial_value**(delta/2)
+        
+        for t in range(1, total_length):
+            # Update power variance
+            abs_return = np.abs(returns[t-1])
+            sign = -1 if returns[t-1] < 0 else 1
+            power_variances[t] = omega + alpha * (abs_return - gamma * sign * abs_return)**delta + beta * power_variances[t-1]
+            
+            # Convert to variance
+            variance = power_variances[t]**(2/delta)
+            
+            # Generate return
+            returns[t] = np.sqrt(variance) * innovations[t]
+    
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+    
+    # Discard burn-in period
+    returns = returns[burn_in:]
+    variances = variances[burn_in:]
+    innovations = innovations[burn_in:]
+    
+    return returns, variances, innovations
+
+
+def forecast_volatility(
+    model_type: str,
+    params: Dict[str, float],
+    last_returns: np.ndarray,
+    last_variances: np.ndarray,
+    steps: int = 10,
+    return_volatility: bool = False,
+    power: float = 2.0
+) -> np.ndarray:
+    """
+    Generate multi-step ahead forecasts for volatility models.
+    
+    This function computes forecasts for various univariate volatility models,
+    including GARCH, EGARCH, TARCH, and APARCH.
+    
+    Args:
+        model_type: Type of volatility model ("garch", "egarch", "tarch", "aparch", etc.)
+        params: Dictionary of model parameters (e.g., {"omega": 0.1, "alpha": 0.1, "beta": 0.8})
+        last_returns: Recent returns for initializing the forecast
+        last_variances: Recent conditional variances for initializing the forecast
+        steps: Number of steps to forecast
+        return_volatility: Whether to return volatility (True) or variance (False)
+        power: Power parameter for models like APARCH
+    
+    Returns:
+        np.ndarray: Forecasted conditional variances or volatilities
+    
+    Raises:
+        ValueError: If the model type is not recognized or if parameters are invalid
+        
+    Examples:
+        >>> import numpy as np
+        >>> from mfe.models.univariate.utils import forecast_volatility
+        >>> last_returns = np.array([0.1, -0.2, 0.3])
+        >>> last_variances = np.array([0.01, 0.02, 0.015])
+        >>> forecasts = forecast_volatility(
+        ...     model_type="garch",
+        ...     params={"omega": 0.05, "alpha": 0.1, "beta": 0.8},
+        ...     last_returns=last_returns,
+        ...     last_variances=last_variances,
+        ...     steps=5
+        ... )
+    """
+    # Validate inputs
+    if not isinstance(last_returns, np.ndarray):
+        last_returns = np.asarray(last_returns)
+    
+    if not isinstance(last_variances, np.ndarray):
+        last_variances = np.asarray(last_variances)
+    
+    if last_returns.ndim != 1:
+        raise ValueError(f"last_returns must be a 1-dimensional array, got shape {last_returns.shape}")
+    
+    if last_variances.ndim != 1:
+        raise ValueError(f"last_variances must be a 1-dimensional array, got shape {last_variances.shape}")
+    
+    if len(last_returns) == 0 or len(last_variances) == 0:
+        raise ValueError("last_returns and last_variances must not be empty")
+    
+    if len(last_returns) != len(last_variances):
+        raise ValueError(f"last_returns and last_variances must have the same length, got {len(last_returns)} and {len(last_variances)}")
+    
+    # Generate forecasts based on the model type
+    model_type = model_type.lower()
+    
+    if model_type == "garch":
+        # Extract parameters
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.1)
+        beta = params.get("beta", 0.8)
+        
+        # Compute persistence
+        persistence = alpha + beta
+        
+        # Compute unconditional variance
+        unconditional_variance = omega / (1 - persistence) if persistence < 1 else last_variances[-1]
+        
+        # Initialize forecasts
+        forecasts = np.zeros(steps)
+        
+        # First step forecast
+        forecasts[0] = omega + alpha * last_returns[-1]**2 + beta * last_variances[-1]
+        
+        # Multi-step forecasts
+        for h in range(1, steps):
+            forecasts[h] = omega + persistence * forecasts[h-1]
+            
+            # For long horizons, approach the unconditional variance
+            if persistence < 1 and h > 100:
+                forecasts[h] = unconditional_variance - (unconditional_variance - forecasts[h]) * 0.1
+    
+    elif model_type == "egarch":
+        # Extract parameters
+        omega = params.get("omega", -0.1)
+        alpha = params.get("alpha", 0.1)
+        gamma = params.get("gamma", 0.05)
+        beta = params.get("beta", 0.9)
+        
+        # Compute standardized residual
+        z = last_returns[-1] / np.sqrt(last_variances[-1])
+        
+        # Compute log-variance for the first step
+        log_variance = omega + alpha * (np.abs(z) - np.sqrt(2/np.pi)) + gamma * z + beta * np.log(last_variances[-1])
+        
+        # Initialize forecasts
+        forecasts = np.zeros(steps)
+        forecasts[0] = np.exp(log_variance)
+        
+        # Multi-step forecasts
+        for h in range(1, steps):
+            # For EGARCH, the expected value of the news impact is 0
+            log_variance = omega + beta * np.log(forecasts[h-1])
+            forecasts[h] = np.exp(log_variance)
+    
+    elif model_type == "tarch":
+        # Extract parameters
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.05)
+        gamma = params.get("gamma", 0.1)
+        beta = params.get("beta", 0.8)
+        
+        # Compute asymmetric term
+        asym = 1 if last_returns[-1] < 0 else 0
+        
+        # Compute persistence
+        persistence = alpha + 0.5 * gamma + beta
+        
+        # Compute unconditional variance
+        unconditional_variance = omega / (1 - persistence) if persistence < 1 else last_variances[-1]
+        
+        # Initialize forecasts
+        forecasts = np.zeros(steps)
+        
+        # First step forecast
+        forecasts[0] = omega + alpha * last_returns[-1]**2 + gamma * last_returns[-1]**2 * asym + beta * last_variances[-1]
+        
+        # Multi-step forecasts
+        for h in range(1, steps):
+            forecasts[h] = omega + persistence * forecasts[h-1]
+            
+            # For long horizons, approach the unconditional variance
+            if persistence < 1 and h > 100:
+                forecasts[h] = unconditional_variance - (unconditional_variance - forecasts[h]) * 0.1
+    
+    elif model_type == "aparch":
+        # Extract parameters
+        omega = params.get("omega", 0.05)
+        alpha = params.get("alpha", 0.05)
+        gamma = params.get("gamma", 0.1)
+        beta = params.get("beta", 0.8)
+        delta = params.get("delta", 1.5)
+        
+        # Compute power-transformed variance for the first step
+        abs_return = np.abs(last_returns[-1])
+        sign = -1 if last_returns[-1] < 0 else 1
+        power_variance = omega + alpha * (abs_return - gamma * sign * abs_return)**delta + beta * last_variances[-1]**(delta/2)
+        
+        # Initialize forecasts
+        forecasts = np.zeros(steps)
+        forecasts[0] = power_variance**(2/delta)
+        
+        # Compute persistence
+        persistence = alpha * (1 + gamma)**delta + beta
+        
+        # Compute unconditional power variance
+        unconditional_power_variance = omega / (1 - persistence) if persistence < 1 else power_variance
+        
+        # Multi-step forecasts
+        for h in range(1, steps):
+            # For APARCH, the expected value of the news impact is more complex
+            # We use a simplified approach here
+            power_variance = omega + persistence * power_variance
+            forecasts[h] = power_variance**(2/delta)
+            
+            # For long horizons, approach the unconditional variance
+            if persistence < 1 and h > 100:
+                unconditional_variance = unconditional_power_variance**(2/delta)
+                forecasts[h] = unconditional_variance - (unconditional_variance - forecasts[h]) * 0.1
+    
+    elif model_type == "igarch":
+        # Extract parameters
+        omega = params.get("omega", 0.05)
+        beta = params.get("beta", 0.8)
+        alpha = 1.0 - beta  # In IGARCH, alpha + beta = 1
+        
+        # Initialize forecasts
+        forecasts = np.zeros(steps)
+        
+        # First step forecast
+        forecasts[0] = omega + alpha * last_returns[-1]**2 + beta * last_variances[-1]
+        
+        # Multi-step forecasts
+        # For IGARCH, E[σ²_{t+h}] = σ²_t + h*ω
+        for h in range(1, steps):
+            forecasts[h] = forecasts[0] + h * omega
+    
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+    
+    # Convert to volatility if requested
+    if return_volatility:
+        forecasts = np.power(forecasts, 1.0 / power)
+    
+    return forecasts
 
 
 # Register Numba-accelerated functions
@@ -1619,142 +2241,3 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
-
-# mfe/models/univariate/utils.py
-"""
-Utility functions for univariate volatility models.
-
-This module provides shared utility functions for univariate volatility models in the MFE Toolbox,
-including starting value generation, parameter validation, backcast computation, and diagnostic
-statistics. These functions are used across different volatility model implementations to ensure
-consistent behavior and avoid code duplication.
-
-The module leverages NumPy's vectorized operations for efficient computation and Numba's JIT
-compilation for performance-critical functions. All functions include comprehensive type hints
-and input validation to ensure reliability and proper error handling.
-"""
-
-
-# Set up module-level logger
-logger = logging.getLogger("mfe.models.univariate.utils")
-
-
-@jit(nopython=True, cache=True)
-def _compute_backcast_numba(data: np.ndarray, decay: float = 0.94) -> float:
-    """
-    Compute backcast value for volatility initialization using exponential decay.
-
-    This Numba-accelerated function computes a weighted average of squared returns
-    with exponentially decaying weights to provide a robust initial value for
-    volatility recursions.
-
-    Args:
-        data: Input data (typically residuals)
-        decay: Decay factor for exponential weighting (0 < decay < 1)
-
-    Returns:
-        float: Backcast value for volatility initialization
-    """
-    n = len(data)
-    weights = np.zeros(n)
-
-    # Compute exponentially decaying weights
-    for i in range(n):
-        weights[i] = decay ** (n - i - 1)
-
-    # Normalize weights to sum to 1
-    weights = weights / np.sum(weights)
-
-    # Compute weighted average of squared returns
-    backcast = 0.0
-    for i in range(n):
-        backcast += weights[i] * data[i] ** 2
-
-    return backcast
-
-
-def compute_backcast(data: np.ndarray, method: str = "exponential", **kwargs: Any) -> float:
-    """
-    Compute backcast value for volatility initialization.
-
-    This function computes an initial value for the conditional variance process
-    using various methods. The backcast value is used to initialize the recursion
-    for computing conditional variances in volatility models.
-
-    Args:
-        data: Input data (typically residuals)
-        method: Method to use for computing the backcast value
-            - "simple": Simple average of squared returns
-            - "exponential": Exponentially weighted average of squared returns
-            - "garch": GARCH-consistent backcast (weighted average based on persistence)
-        **kwargs: Additional keyword arguments for specific methods
-            - decay: Decay factor for exponential weighting (default: 0.94)
-            - persistence: Persistence parameter for GARCH-consistent method
-
-    Returns:
-        float: Backcast value for volatility initialization
-
-    Raises:
-        ValueError: If the method is not recognized or if data is invalid
-
-    Examples:
-        >>> import numpy as np
-        >>> from mfe.models.univariate.utils import compute_backcast
-        >>> data = np.random.normal(0, 1, 100)
-        >>> backcast = compute_backcast(data, method="simple")
-        >>> backcast_exp = compute_backcast(data, method="exponential", decay=0.95)
-    """
-    # Validate input data
-    if not isinstance(data, np.ndarray):
-        data = np.asarray(data)
-
-    if data.ndim != 1:
-        raise ValueError(f"data must be a 1-dimensional array, got shape {data.shape}")
-
-    if len(data) == 0:
-        raise ValueError("data must not be empty")
-
-    # Compute backcast based on method
-    if method == "simple":
-        # Simple average of squared returns
-        return np.mean(data ** 2)
-
-    elif method == "exponential":
-        # Exponentially weighted average of squared returns
-        decay = kwargs.get("decay", 0.94)
-
-        # Validate decay parameter
-        if not 0 < decay < 1:
-            raise ValueError(f"decay must be between 0 and 1, got {decay}")
-
-        # Use Numba-accelerated implementation
-        return _compute_backcast_numba(data, decay)
-
-    elif method == "garch":
-        # GARCH-consistent backcast (weighted average based on persistence)
-        persistence = kwargs.get("persistence", 0.94)
-
-        # Validate persistence parameter
-        if not 0 <= persistence < 1:
-            raise ValueError(f"persistence must be between 0 and 1, got {persistence}")
-
-        # Compute unconditional variance
-        unconditional_variance = np.mean(data ** 2)
-
-        # For very high persistence, use more weight on the sample variance
-        if persistence > 0.98:
-            return unconditional_variance
-
-        # Compute weighted average based on persistence
-        weights = np.zeros_like(data)
-        for i in range(len(data)):
-            weights[i] = persistence ** (len(data) - i - 1)
-
-        # Normalize weights
-        weights = weights / np.sum(weights)
-
-        # Compute weighted average
-        return np.sum(weights * data ** 2)
-
-    else:
-        raise ValueError(f"Unknown method: {method}. Supported methods are 'simple', 'exponential', and 'garch'.")

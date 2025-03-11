@@ -857,3 +857,42 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+@njit(cache=True)
+def _compute_subsampled_measure_numba(
+    returns: np.ndarray,
+    subsample_factor: int,
+    measure_func: Callable[[np.ndarray], float]
+) -> float:
+    """Compute a subsampled realized measure using Numba acceleration.
+    
+    This function computes a subsampled realized measure by averaging the measure
+    over multiple subsamples of the returns. This approach reduces the impact of
+    microstructure noise and improves the precision of the estimator.
+    
+    Args:
+        returns: Returns series
+        subsample_factor: Number of subsamples to use
+        measure_func: Function that computes the realized measure on a returns series
+        
+    Returns:
+        float: Subsampled realized measure
+    """
+    n = len(returns)
+    
+    # If subsample_factor is 1 or less, just compute the measure directly
+    if subsample_factor <= 1:
+        return measure_func(returns)
+    
+    # Compute the measure for each subsample
+    subsample_measures = np.zeros(subsample_factor)
+    
+    for i in range(subsample_factor):
+        # Extract the i-th subsample
+        subsample = returns[i::subsample_factor]
+        
+        # Compute the measure for this subsample
+        subsample_measures[i] = measure_func(subsample)
+    
+    # Scale the average by the subsample factor to account for the reduced number of observations
+    return np.mean(subsample_measures) * subsample_factor

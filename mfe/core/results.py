@@ -34,6 +34,38 @@ D = TypeVar('D')  # Generic type for data
 
 
 @dataclass
+class ResultContainer(Generic[T]):
+    """Container for storing multiple results.
+    
+    This class provides a way to store and manage multiple result objects,
+    such as from multiple model estimations or simulations.
+    
+    Attributes:
+        results: List of result objects
+        metadata: Additional metadata about the container
+    """
+    
+    results: List[T]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __getitem__(self, index):
+        """Access results by index."""
+        return self.results[index]
+    
+    def __len__(self):
+        """Get the number of results."""
+        return len(self.results)
+    
+    def __iter__(self):
+        """Iterate over results."""
+        return iter(self.results)
+    
+    def append(self, result: T):
+        """Add a result to the container."""
+        self.results.append(result)
+
+
+@dataclass
 class ModelResult:
     """Base class for all model results.
     
@@ -379,7 +411,7 @@ class EstimationResult(ModelResult):
         return comparison
 
 
-@dataclass
+@dataclass(init=False)
 class SimulationResult(ModelResult):
     """Base class for model simulation results.
     
@@ -399,6 +431,36 @@ class SimulationResult(ModelResult):
     burn: int = 0
     seed: Optional[int] = None
     simulation_parameters: Optional[ParameterBase] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        simulated_data: np.ndarray,
+        n_periods: int,
+        burn: int = 0,
+        seed: Optional[int] = None,
+        simulation_parameters: Optional[ParameterBase] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize a SimulationResult instance.
+        
+        Args:
+            model_name: Name of the model
+            simulated_data: Simulated data
+            n_periods: Number of periods simulated
+            burn: Number of initial observations discarded
+            seed: Random seed used for simulation
+            simulation_parameters: Parameters used for simulation
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+        """
+        super().__init__(model_name, creation_time, metadata)
+        self.simulated_data = simulated_data
+        self.n_periods = n_periods
+        self.burn = burn
+        self.seed = seed
+        self.simulation_parameters = simulation_parameters
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""
@@ -425,107 +487,6 @@ class SimulationResult(ModelResult):
         data_stats = "Simulated Data Statistics:\n"
         data_stats += f"  Shape: {self.simulated_data.shape}\n"
         data_stats += f"  Mean: {np.mean(self.simulated_data):.6f}\n"
-        data_stats += f"  Std. Dev.: {np.std(self.simulated_data):.6f}\n"
-        data_stats += f"  Min: {np.min(self.simulated_data):.6f}\n"
-        data_stats += f"  Max: {np.max(self.simulated_data):.6f}\n"
-        data_stats += "\n"
-        
-        param_info = ""
-        if self.simulation_parameters is not None:
-            param_info = "Simulation Parameters:\n"
-            for name, value in self.simulation_parameters.to_dict().items():
-                param_info += f"  {name}: {value}\n"
-            param_info += "\n"
-        
-        return base_summary + sim_info + data_stats + param_info
-    
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert simulated data to a pandas DataFrame.
-        
-        Returns:
-            pd.DataFrame: DataFrame containing simulated data
-        """
-        if self.simulated_data.ndim == 1:
-            return pd.DataFrame({"simulated_data": self.simulated_data})
-        
-        # For multivariate data, create column names
-        columns = [f"series_{i+1}" for i in range(self.simulated_data.shape[1])]
-        return pd.DataFrame(self.simulated_data, columns=columns)
-    
-    def plot(self, **kwargs: Any) -> Any:
-        """Plot the simulated data.
-        
-        Args:
-            **kwargs: Additional keyword arguments for plotting
-        
-        Returns:
-            Any: Plot object
-        
-        Note:
-            This method requires matplotlib to be installed.
-        """
-        try:
-            import matplotlib.pyplot as plt
-        except ImportError:
-            raise ImportError("Matplotlib is required for plotting")
-        
-        df = self.to_dataframe()
-        ax = df.plot(**kwargs)
-        plt.title(f"Simulated Data from {self.model_name}")
-        plt.xlabel("Time")
-        plt.ylabel("Value")
-        
-        return ax
-
-
-@dataclass
-class ForecastResult(ModelResult):
-    """Base class for model forecast results.
-    
-    This class extends ModelResult to provide common functionality for
-    forecast results, including point forecasts and prediction intervals.
-    
-    Attributes:
-        forecasts: Point forecasts
-        lower_bounds: Lower bounds of prediction intervals
-        upper_bounds: Upper bounds of prediction intervals
-        confidence_level: Confidence level for prediction intervals
-        forecast_horizon: Number of steps forecasted
-        forecast_origin: Last observation used for forecasting
-        forecast_parameters: Parameters used for forecasting
-    """
-    
-    forecasts: np.ndarray
-    lower_bounds: Optional[np.ndarray] = None
-    upper_bounds: Optional[np.ndarray] = None
-    confidence_level: float = 0.95
-    forecast_horizon: int = 1
-    forecast_origin: Optional[Union[int, str, datetime]] = None
-    forecast_parameters: Optional[ParameterBase] = None
-    
-    def __post_init__(self) -> None:
-        """Validate result object after initialization."""
-        super().__post_init__()
-        
-        # Ensure forecasts is a NumPy array
-        if not isinstance(self.forecasts, np.ndarray):
-            self.forecasts = np.array(self.forecasts)
-        
-        # Ensure lower_bounds and upper_bounds are NumPy arrays if provided
-        if self.lower_bounds is not None and not isinstance(self.lower_bounds, np.ndarray):
-            self.lower_bounds = np.array(self.lower_bounds)
-        
-        if self.upper_bounds is not None and not isinstance(self.upper_bounds, np.ndarray):
-            self.upper_bounds = np.array(self.upper_bounds)
-    
-    def summary(self) -> str:
-        """Generate a text summary of the forecast results.
-        
-        Returns:
-            str: A formatted string containing the forecast results summary
-        """
-        base_summary = super().summary()
-        
         forecast_info = f"Forecast Horizon: {self.forecast_horizon}\n"
         if self.forecast_origin is not None:
             forecast_info += f"Forecast Origin: {self.forecast_origin}\n"
@@ -1810,7 +1771,7 @@ class BootstrapResult(ModelResult):
         return fig
 
 
-@dataclass
+@dataclass(init=False)
 class RealizedVolatilityResult(ModelResult):
     """Result container for realized volatility models.
     
@@ -1838,6 +1799,48 @@ class RealizedVolatilityResult(ModelResult):
     subsampling: bool = False
     noise_correction: bool = False
     annualization_factor: Optional[float] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        realized_measure: np.ndarray,
+        prices: Optional[np.ndarray] = None,
+        times: Optional[np.ndarray] = None,
+        sampling_frequency: Optional[Union[str, float]] = None,
+        kernel_type: Optional[str] = None,
+        bandwidth: Optional[float] = None,
+        subsampling: bool = False,
+        noise_correction: bool = False,
+        annualization_factor: Optional[float] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize a RealizedVolatilityResult instance.
+        
+        Args:
+            model_name: Name of the model
+            realized_measure: Computed realized measure (e.g., variance, kernel)
+            prices: High-frequency price data used for computation
+            times: Corresponding time points
+            sampling_frequency: Sampling frequency used for computation
+            kernel_type: Type of kernel used (for kernel-based estimators)
+            bandwidth: Bandwidth parameter (for kernel-based estimators)
+            subsampling: Whether subsampling was used
+            noise_correction: Whether noise correction was applied
+            annualization_factor: Factor used for annualization
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+        """
+        super().__init__(model_name, creation_time, metadata)
+        self.realized_measure = realized_measure
+        self.prices = prices
+        self.times = times
+        self.sampling_frequency = sampling_frequency
+        self.kernel_type = kernel_type
+        self.bandwidth = bandwidth
+        self.subsampling = subsampling
+        self.noise_correction = noise_correction
+        self.annualization_factor = annualization_factor
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""
@@ -2224,6 +2227,204 @@ class CrossSectionalResult(EstimationResult):
         plt.tight_layout()
         
         return fig
+
+
+@dataclass(init=False)
+class ForecastResult(ModelResult):
+    """Base class for model forecast results.
+    
+    This class extends ModelResult to provide common functionality for
+    forecast results, including forecast data and forecast parameters.
+    
+    Attributes:
+        forecasts: Forecasted values
+        forecast_horizon: Number of periods forecasted
+        forecast_origin: Starting point for the forecast
+        confidence_level: Confidence level for prediction intervals
+        lower_bounds: Lower bounds of prediction intervals
+        upper_bounds: Upper bounds of prediction intervals
+        forecast_parameters: Parameters used for forecasting
+    """
+    
+    forecasts: np.ndarray
+    forecast_horizon: int
+    forecast_origin: Optional[Union[int, datetime, str]] = None
+    confidence_level: float = 0.95
+    lower_bounds: Optional[np.ndarray] = None
+    upper_bounds: Optional[np.ndarray] = None
+    forecast_parameters: Optional[ParameterBase] = None
+    
+    def __init__(
+        self,
+        model_name: str,
+        forecasts: np.ndarray,
+        forecast_horizon: int,
+        forecast_origin: Optional[Union[int, datetime, str]] = None,
+        confidence_level: float = 0.95,
+        lower_bounds: Optional[np.ndarray] = None,
+        upper_bounds: Optional[np.ndarray] = None,
+        forecast_parameters: Optional[ParameterBase] = None,
+        creation_time: Optional[datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize a ForecastResult instance.
+        
+        Args:
+            model_name: Name of the model
+            forecasts: Forecasted values
+            forecast_horizon: Number of periods forecasted
+            forecast_origin: Starting point for the forecast
+            confidence_level: Confidence level for prediction intervals
+            lower_bounds: Lower bounds of prediction intervals
+            upper_bounds: Upper bounds of prediction intervals
+            forecast_parameters: Parameters used for forecasting
+            creation_time: Time when the result was created
+            metadata: Additional metadata
+        """
+        super().__init__(model_name, creation_time, metadata)
+        
+        # Ensure forecasts is a numpy array
+        if not isinstance(forecasts, np.ndarray):
+            forecasts = np.asarray(forecasts)
+            
+        self.forecasts = forecasts
+        self.forecast_horizon = forecast_horizon
+        self.forecast_origin = forecast_origin
+        self.confidence_level = confidence_level
+        
+        # Ensure bounds are numpy arrays if provided
+        if lower_bounds is not None and not isinstance(lower_bounds, np.ndarray):
+            lower_bounds = np.asarray(lower_bounds)
+        if upper_bounds is not None and not isinstance(upper_bounds, np.ndarray):
+            upper_bounds = np.asarray(upper_bounds)
+            
+        self.lower_bounds = lower_bounds
+        self.upper_bounds = upper_bounds
+        self.forecast_parameters = forecast_parameters
+    
+    def __str__(self) -> str:
+        """Return a string representation of the forecast result."""
+        base_summary = super().__str__()
+        
+        forecast_info = f"Forecast Horizon: {self.forecast_horizon}\n"
+        if self.forecast_origin is not None:
+            forecast_info += f"Forecast Origin: {self.forecast_origin}\n"
+        forecast_info += f"Confidence Level: {self.confidence_level:.2f}\n"
+        forecast_info += "\n"
+        
+        forecast_stats = "Forecast Statistics:\n"
+        forecast_stats += f"  Shape: {self.forecasts.shape}\n"
+        forecast_stats += f"  Mean: {np.mean(self.forecasts):.6f}\n"
+        forecast_stats += f"  Min: {np.min(self.forecasts):.6f}\n"
+        forecast_stats += f"  Max: {np.max(self.forecasts):.6f}\n"
+        forecast_stats += "\n"
+        
+        param_info = ""
+        if self.forecast_parameters is not None:
+            param_info = "Forecast Parameters:\n"
+            for name, value in self.forecast_parameters.to_dict().items():
+                param_info += f"  {name}: {value}\n"
+        
+        return base_summary + forecast_info + forecast_stats + param_info
+    
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert forecast results to a pandas DataFrame.
+        
+        Returns:
+            pd.DataFrame: DataFrame containing forecast results
+        """
+        # Create index based on forecast horizon
+        if isinstance(self.forecast_origin, (datetime, str)):
+            # If forecast_origin is a date, create a date index
+            try:
+                if isinstance(self.forecast_origin, str):
+                    origin = pd.to_datetime(self.forecast_origin)
+                else:
+                    origin = self.forecast_origin
+                
+                index = pd.date_range(
+                    start=origin,
+                    periods=self.forecast_horizon + 1,
+                    freq="D"  # Default to daily frequency
+                )[1:]  # Exclude the origin
+            except Exception:
+                # Fall back to numeric index if date conversion fails
+                index = range(1, self.forecast_horizon + 1)
+        else:
+            # Create numeric index
+            if self.forecast_origin is not None:
+                start = self.forecast_origin + 1
+            else:
+                start = 1
+            
+            index = range(start, start + self.forecast_horizon)
+        
+        # Create DataFrame
+        if self.forecasts.ndim == 1:
+            # For univariate forecasts
+            df = pd.DataFrame(
+                {"forecast": self.forecasts},
+                index=index
+            )
+            
+            # Add confidence intervals if available
+            if self.lower_bounds is not None and self.upper_bounds is not None:
+                df[f"lower_{int(self.confidence_level * 100)}"] = self.lower_bounds
+                df[f"upper_{int(self.confidence_level * 100)}"] = self.upper_bounds
+        else:
+            # For multivariate forecasts
+            columns = [f"series_{i+1}" for i in range(self.forecasts.shape[1])]
+            df = pd.DataFrame(self.forecasts, index=index, columns=columns)
+            
+            # TODO: Add multivariate confidence intervals if needed
+        
+        return df
+    
+    def plot(self, ax=None, figsize=(10, 6), include_intervals=True, **kwargs):
+        """Plot the forecast results.
+        
+        Args:
+            ax: Matplotlib axis to plot on (optional)
+            figsize: Figure size if creating a new figure
+            include_intervals: Whether to include prediction intervals in the plot
+            **kwargs: Additional keyword arguments for plotting
+            
+        Returns:
+            matplotlib.axes.Axes: The plot axes
+        """
+        import matplotlib.pyplot as plt
+        
+        df = self.to_dataframe()
+        
+        if ax is None:
+            _, ax = plt.subplots(figsize=figsize)
+        
+        if self.forecasts.ndim == 1:
+            ax = df["forecast"].plot(**kwargs)
+            
+            # Add prediction intervals if available and requested
+            if include_intervals and self.lower_bounds is not None and self.upper_bounds is not None:
+                lower_col = f"lower_{int(self.confidence_level * 100)}"
+                upper_col = f"upper_{int(self.confidence_level * 100)}"
+                
+                ax.fill_between(
+                    df.index,
+                    df[lower_col],
+                    df[upper_col],
+                    alpha=0.2,
+                    color="blue",
+                    label=f"{int(self.confidence_level * 100)}% Confidence Interval"
+                )
+        else:
+            ax = df.plot(ax=ax, **kwargs)
+        
+        plt.title(f"Forecasts from {self.model_name}")
+        plt.xlabel("Forecast Horizon")
+        plt.ylabel("Value")
+        plt.grid(True, linestyle="--", alpha=0.7)
+        plt.legend()
+        
+        return ax
 
 
 # Helper functions for loading and saving results

@@ -541,3 +541,7 @@ def _register_numba_functions() -> None:
 
 # Initialize the module
 _register_numba_functions()
+
+# Create aliases for backward compatibility
+jitter_lag_length = compute_jitter_lag_length
+jitter_data_length = compute_jitter_lag_length_by_kernel

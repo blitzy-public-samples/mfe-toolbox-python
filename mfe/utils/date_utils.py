@@ -1,22 +1,23 @@
-import calendar
-import datetime
-from datetime import datetime as dt
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, cast, overload
-
+import datetime as dt
+import warnings
+from typing import (
+    Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, cast, overload
+)
 import numpy as np
 import pandas as pd
-from pandas.tseries.holiday import USFederalHolidayCalendar
-from pandas.tseries.offsets import BDay, Day, Hour, Minute, MonthEnd, QuarterEnd, Second, Week, YearEnd
+from pandas.tseries.holiday import AbstractHolidayCalendar
 
-from mfe.core.exceptions import (
-    DataError, raise_data_error, warn_numeric
-)
 from mfe.core.validation import (
-    validate_input_type, validate_custom_condition
+    validate_input_type, validate_type, validate_in_range
 )
+from mfe.core.exceptions import (
+    MFEError, ParameterError, raise_parameter_error
+)
+
+# Type alias for date-like objects
+DateType = Union[str, pd.Timestamp, dt.datetime, np.datetime64]
 
 # Type aliases for date-related types
-DateType = Union[str, dt, np.datetime64, pd.Timestamp]
 DateIndex = Union[pd.DatetimeIndex, List[DateType], np.ndarray]
 DateRange = Union[pd.DatetimeIndex, List[DateType]]
 FrequencyType = Union[str, pd.DateOffset]
@@ -316,13 +317,14 @@ def index_to_date(indices: Union[float, Sequence[float]],
     return pd.DatetimeIndex(result)
 
 
-@validate_input_type(0, (str, pd.Timestamp, dt, np.datetime64))
-@validate_input_type(1, (str, pd.Timestamp, dt, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
+@validate_input_type(1, (str, pd.Timestamp, dt.datetime, np.datetime64))
 def date_range(start_date: DateType,
                end_date: DateType,
                freq: str = 'D',
                inclusive: str = 'both',
-               calendar: Optional[pd.AbstractHolidayCalendar] = None) -> pd.DatetimeIndex:
+               calendar: Optional[AbstractHolidayCalendar] = None) -> pd.DatetimeIndex:
     """Create a range of dates with the specified frequency.
     
     This function creates a DatetimeIndex with dates ranging from start_date to end_date
@@ -386,11 +388,11 @@ def date_range(start_date: DateType,
     return date_index
 
 
-@validate_input_type(0, (str, pd.Timestamp, dt, np.datetime64))
-@validate_input_type(1, (str, pd.Timestamp, dt, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
+@validate_input_type(1, (str, pd.Timestamp, dt.datetime, np.datetime64))
 def business_day_count(start_date: DateType,
                        end_date: DateType,
-                       calendar: Optional[pd.AbstractHolidayCalendar] = None) -> int:
+                       calendar: Optional[AbstractHolidayCalendar] = None) -> int:
     """Count the number of business days between two dates.
     
     This function counts the number of business days (excluding weekends and holidays)
@@ -426,9 +428,9 @@ def business_day_count(start_date: DateType,
     return len(bday_range)
 
 
-@validate_input_type(0, (str, pd.Timestamp, dt, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
 def is_business_day(date: DateType,
-                    calendar: Optional[pd.AbstractHolidayCalendar] = None) -> bool:
+                    calendar: Optional[AbstractHolidayCalendar] = None) -> bool:
     """Check if a date is a business day.
     
     This function checks if the given date is a business day (not a weekend or holiday).
@@ -462,9 +464,9 @@ def is_business_day(date: DateType,
     return len(holidays) == 0
 
 
-@validate_input_type(0, (str, pd.Timestamp, dt, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
 def next_business_day(date: DateType,
-                      calendar: Optional[pd.AbstractHolidayCalendar] = None) -> pd.Timestamp:
+                      calendar: Optional[AbstractHolidayCalendar] = None) -> pd.Timestamp:
     """Get the next business day after the given date.
     
     This function returns the next business day (not a weekend or holiday)
@@ -498,9 +500,9 @@ def next_business_day(date: DateType,
     return next_day
 
 
-@validate_input_type(0, (str, pd.Timestamp, dt, np.datetime64))
+@validate_input_type(0, (str, pd.Timestamp, dt.datetime, np.datetime64))
 def previous_business_day(date: DateType,
-                          calendar: Optional[pd.AbstractHolidayCalendar] = None) -> pd.Timestamp:
+                          calendar: Optional[AbstractHolidayCalendar] = None) -> pd.Timestamp:
     """Get the previous business day before the given date.
     
     This function returns the previous business day (not a weekend or holiday)
@@ -644,7 +646,7 @@ def convert_to_datetime_index(dates: Union[DateType, Sequence[DateType]]) -> pd.
         TypeError: If dates cannot be converted to datetime
     """
     try:
-        if isinstance(dates, (str, dt, np.datetime64, pd.Timestamp)):
+        if isinstance(dates, (str, dt.datetime, np.datetime64, pd.Timestamp)):
             # Single date
             return pd.DatetimeIndex([pd.Timestamp(dates)])
         else:
@@ -836,7 +838,7 @@ def convert_timezone(date: DateType,
 
 
 def create_business_day_calendar(holidays: Optional[List[DateType]] = None,
-                                 weekend_mask: Optional[str] = None) -> pd.AbstractHolidayCalendar:
+                                 weekend_mask: Optional[str] = None) -> AbstractHolidayCalendar:
     """Create a custom business day calendar.
     
     This function creates a custom business day calendar with the specified
@@ -1001,7 +1003,7 @@ def get_fiscal_year_dates(date: DateType,
 
 def get_trading_days(start_date: DateType,
                      end_date: DateType,
-                     calendar: Optional[pd.AbstractHolidayCalendar] = None) -> pd.DatetimeIndex:
+                     calendar: Optional[AbstractHolidayCalendar] = None) -> pd.DatetimeIndex:
     """Get all trading days (business days) between two dates.
     
     Args:
@@ -1133,7 +1135,7 @@ def is_leap_year(year: Union[int, DateType]) -> bool:
     Raises:
         TypeError: If year is not a valid year or date type
     """
-    if isinstance(year, (str, dt, np.datetime64, pd.Timestamp)):
+    if isinstance(year, (str, dt.datetime, np.datetime64, pd.Timestamp)):
         try:
             pd_date = pd.Timestamp(year)
             year = pd_date.year
