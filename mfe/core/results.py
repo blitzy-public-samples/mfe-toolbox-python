@@ -85,7 +85,9 @@ class ModelResult:
     def __post_init__(self) -> None:
         """Validate result object after initialization."""
         # Ensure metadata is a dictionary
-        if not isinstance(self.metadata, dict):
+        if self.metadata is None:
+            self.metadata = {}
+        elif not isinstance(self.metadata, dict):
             self.metadata = dict(self.metadata)
     
     def to_dict(self) -> Dict[str, Any]:

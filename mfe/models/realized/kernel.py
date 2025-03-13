@@ -129,6 +129,8 @@ class KernelEstimatorResult(RealizedEstimatorResult):
         autocovariances: Autocovariances used in estimation
         subsampling: Whether subsampling was used
         subsampling_factor: Number of subsamples used
+        raw_measure: Raw realized measure before bias correction
+        bias_corrected_measure: Realized measure after bias correction
     """
     
     kernel_weights: Optional[np.ndarray] = None
@@ -137,6 +139,8 @@ class KernelEstimatorResult(RealizedEstimatorResult):
     max_lags: Optional[int] = None
     autocovariances: Optional[np.ndarray] = None
     subsampling_factor: Optional[int] = None
+    raw_measure: Optional[float] = None
+    bias_corrected_measure: Optional[float] = None
     
     def __init__(
         self,
@@ -163,7 +167,9 @@ class KernelEstimatorResult(RealizedEstimatorResult):
         jitter_correction: bool = False,
         max_lags: Optional[int] = None,
         autocovariances: Optional[np.ndarray] = None,
-        subsampling_factor: Optional[int] = None
+        subsampling_factor: Optional[int] = None,
+        raw_measure: Optional[float] = None,
+        bias_corrected_measure: Optional[float] = None
     ) -> None:
         """Initialize the kernel estimator result.
         
@@ -192,6 +198,8 @@ class KernelEstimatorResult(RealizedEstimatorResult):
             max_lags: Maximum number of lags used
             autocovariances: Autocovariances used in estimation
             subsampling_factor: Number of subsamples used
+            raw_measure: Raw realized measure before bias correction
+            bias_corrected_measure: Realized measure after bias correction
         """
         super().__init__(
             model_name=model_name,
@@ -220,6 +228,8 @@ class KernelEstimatorResult(RealizedEstimatorResult):
         self.max_lags = max_lags
         self.autocovariances = autocovariances
         self.subsampling_factor = subsampling_factor
+        self.raw_measure = raw_measure
+        self.bias_corrected_measure = bias_corrected_measure
     
     def __post_init__(self) -> None:
         """Validate result object after initialization."""

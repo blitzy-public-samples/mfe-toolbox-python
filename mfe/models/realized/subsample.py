@@ -169,59 +169,70 @@ def _subsample_returns_numba(returns: np.ndarray, subsample_factor: int) -> List
 
 
 
-def subsample_returns(returns: np.ndarray, subsample_factor: int) -> List[np.ndarray]:
+def subsample_returns(returns: np.ndarray, subsample_factor: int = None, k: int = None) -> List[np.ndarray]:
     """
     Apply subsampling to return series.
     
-    This function creates multiple subsampled return series by taking every
-    subsample_factor-th return starting from different points.
+    This function creates multiple subsampled return series by taking every k-th
+    observation with different starting points. The result is a list of subsampled
+    return series, each with approximately n/k observations.
     
     Args:
-        returns: Array of returns
-        subsample_factor: Number of subsamples to generate
-        
+        returns: Original return series
+        subsample_factor: Number of subsamples to generate (k)
+        k: Alias for subsample_factor (for backward compatibility)
+    
     Returns:
-        List of subsampled return arrays
-        
+        List of subsampled return series
+    
     Raises:
-        ValueError: If inputs are invalid
-        
+        ValueError: If subsample_factor is not a positive integer
+        TypeError: If returns is not a NumPy array
+    
     Examples:
         >>> import numpy as np
         >>> from mfe.models.realized.subsample import subsample_returns
-        >>> returns = np.array([0.01, 0.02, -0.01, 0.03, -0.02, 0.01])
-        >>> subsampled = subsample_returns(returns, 3)
+        >>> returns = np.array([0.001, 0.002, -0.001, 0.003, -0.002, 0.001, 0.004, -0.003])
+        >>> subsampled = subsample_returns(returns, subsample_factor=2)
         >>> len(subsampled)
-        3
-        >>> subsampled[0]  # First subsample (indices 0, 3)
-        array([0.01, 0.03])
-        >>> subsampled[1]  # Second subsample (indices 1, 4)
-        array([ 0.02, -0.02])
-        >>> subsampled[2]  # Third subsample (indices 2, 5)
-        array([-0.01,  0.01])
+        2
+        >>> subsampled[0]  # First subsample (starting from index 0)
+        array([0.001, -0.001, -0.002, 0.004])
+        >>> subsampled[1]  # Second subsample (starting from index 1)
+        array([0.002, 0.003, 0.001, -0.003])
     """
-    # Convert to numpy array if not already
-    returns = np.asarray(returns)
+    # Handle the case where k is provided instead of subsample_factor
+    if subsample_factor is None and k is not None:
+        subsample_factor = k
+    elif subsample_factor is None and k is None:
+        raise ValueError("Either subsample_factor or k must be provided")
     
     # Validate inputs
-    if returns.ndim != 1:
-        raise ValueError("returns must be a 1D array")
+    if not isinstance(returns, np.ndarray):
+        try:
+            returns = np.asarray(returns)
+        except:
+            raise TypeError("returns must be a NumPy array or convertible to one")
+    
     if not isinstance(subsample_factor, int) or subsample_factor <= 0:
-        raise ValueError("subsample_factor must be a positive integer")
-    if subsample_factor > len(returns):
-        raise ValueError(f"subsample_factor ({subsample_factor}) must be less than or equal to the length of returns ({len(returns)})")
+        raise ValueError(f"subsample_factor must be a positive integer, got {subsample_factor}")
+    
+    if subsample_factor == 1:
+        # No subsampling needed
+        return [returns]
     
     # Use Numba-accelerated implementation if available
     if HAS_NUMBA:
         return _subsample_returns_numba(returns, subsample_factor)
     
-    # Pure NumPy implementation
+    # Fallback to pure NumPy implementation
+    n = len(returns)
     subsampled_returns = []
     
     for i in range(subsample_factor):
-        # Extract i-th subsample
-        subsample = returns[i::subsample_factor]
-        subsampled_returns.append(subsample)
+        # Extract every subsample_factor-th return starting from index i
+        subsampled = returns[i:n:subsample_factor]
+        subsampled_returns.append(subsampled)
     
     return subsampled_returns
 

@@ -56,6 +56,7 @@ class RealizedEstimatorConfig(ParameterBase):
         kernel_type: Type of kernel for kernel-based estimators
         bandwidth: Bandwidth parameter for kernel-based estimators
         time_unit: Unit of time for high-frequency data ('seconds', 'minutes', etc.)
+        interpolation_method: Method for interpolating prices ('previous', 'linear', 'cubic')
     """
     
     sampling_frequency: Optional[Union[str, float, int]] = None
@@ -68,6 +69,7 @@ class RealizedEstimatorConfig(ParameterBase):
     kernel_type: Optional[str] = None
     bandwidth: Optional[float] = None
     time_unit: str = 'seconds'
+    interpolation_method: Literal['previous', 'linear', 'cubic'] = 'previous'
     
     def __post_init__(self) -> None:
         """Validate configuration parameters after initialization."""
@@ -86,6 +88,10 @@ class RealizedEstimatorConfig(ParameterBase):
         # Validate return_type
         if self.return_type not in ['log', 'simple']:
             raise ParameterError(f"return_type must be 'log' or 'simple', got {self.return_type}")
+        
+        # Validate interpolation_method
+        if self.interpolation_method not in ['previous', 'linear', 'cubic']:
+            raise ParameterError(f"interpolation_method must be 'previous', 'linear', or 'cubic', got {self.interpolation_method}")
         
         # Validate subsampling_factor if use_subsampling is True
         if self.use_subsampling:
@@ -121,17 +127,27 @@ class RealizedEstimatorConfig(ParameterBase):
 
 @dataclass(init=False)
 class RealizedEstimatorResult(RealizedVolatilityResult):
-    """Result container for realized volatility estimators.
+    """Result object for realized volatility estimators.
     
-    This class extends RealizedVolatilityResult to provide specialized functionality
-    for realized volatility estimator results, including additional metadata and
-    diagnostic information specific to realized volatility estimation.
+    This class extends the base RealizedVolatilityResult with additional
+    attributes specific to realized volatility estimators, such as returns,
+    noise variance, jump detection results, and computation time.
     
     Attributes:
-        returns: Returns computed from prices (if available)
-        noise_variance: Estimated noise variance (if noise correction was applied)
-        jump_threshold: Threshold used for jump detection (if applicable)
-        jump_indicators: Indicators of detected jumps (if applicable)
+        model_name: Name of the model
+        realized_measure: Realized volatility measure
+        prices: Original price series
+        times: Original time points
+        sampling_frequency: Sampling frequency used for computation
+        kernel_type: Type of kernel used (for kernel-based estimators)
+        bandwidth: Bandwidth parameter (for kernel-based estimators)
+        subsampling: Whether subsampling was used
+        noise_correction: Whether noise correction was applied
+        annualization_factor: Factor used for annualization
+        returns: Returns computed from prices
+        noise_variance: Estimated noise variance
+        jump_threshold: Threshold used for jump detection
+        jump_indicators: Indicators of detected jumps
         computation_time: Time taken for computation (in seconds)
         config: Configuration used for estimation
     """
@@ -146,10 +162,10 @@ class RealizedEstimatorResult(RealizedVolatilityResult):
     def __init__(
         self,
         model_name: str,
-        realized_measure: np.ndarray,
+        realized_measure: Union[float, np.ndarray],
         prices: Optional[np.ndarray] = None,
         times: Optional[np.ndarray] = None,
-        sampling_frequency: Optional[Union[str, float]] = None,
+        sampling_frequency: Optional[float] = None,
         kernel_type: Optional[str] = None,
         bandwidth: Optional[float] = None,
         subsampling: bool = False,
@@ -168,9 +184,9 @@ class RealizedEstimatorResult(RealizedVolatilityResult):
         
         Args:
             model_name: Name of the model
-            realized_measure: Computed realized measure
-            prices: High-frequency price data used for computation
-            times: Corresponding time points
+            realized_measure: Realized volatility measure
+            prices: Original price series
+            times: Original time points
             sampling_frequency: Sampling frequency used for computation
             kernel_type: Type of kernel used (for kernel-based estimators)
             bandwidth: Bandwidth parameter (for kernel-based estimators)
@@ -186,6 +202,10 @@ class RealizedEstimatorResult(RealizedVolatilityResult):
             creation_time: Timestamp when the result was created
             metadata: Additional metadata about the result
         """
+        # Store realized_measure directly before calling super().__init__
+        # This ensures it's available during parent class initialization
+        self.realized_measure = realized_measure
+        
         super().__init__(
             model_name=model_name,
             realized_measure=realized_measure,

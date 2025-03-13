@@ -54,14 +54,15 @@ except ImportError:
 
 
 def refresh_time(
+    price_arrays: List[Union[np.ndarray, pd.Series]],
     times_list: List[Union[np.ndarray, pd.Series, pd.DatetimeIndex]],
     convert_to_seconds: bool = True,
     base_time: Optional[Union[str, pd.Timestamp]] = None,
     return_indices: bool = False,
     return_pandas: bool = False
 ) -> Union[
-    np.ndarray,
-    pd.DatetimeIndex,
+    Tuple[List[np.ndarray], np.ndarray],
+    Tuple[List[np.ndarray], pd.DatetimeIndex],
     Tuple[np.ndarray, List[np.ndarray]],
     Tuple[pd.DatetimeIndex, List[np.ndarray]]
 ]:
@@ -72,6 +73,7 @@ def refresh_time(
     at least one price update, creating a synchronized time grid for multivariate analysis.
 
     Args:
+        price_arrays: List of price series for each asset
         times_list: List of time series for each asset
         convert_to_seconds: Whether to convert all times to seconds for processing
         base_time: Base time for datetime conversion (required if times are datetime and convert_to_seconds=True)
@@ -79,7 +81,9 @@ def refresh_time(
         return_pandas: Whether to return a pandas DatetimeIndex instead of numpy array
 
     Returns:
-        Refresh times as numpy array or pandas DatetimeIndex, optionally with indices
+        If return_indices is False: Tuple of (refreshed_prices, refresh_times)
+        If return_indices is True: Tuple of (refresh_times, indices)
+        Where refresh_times is a numpy array or pandas DatetimeIndex
 
     Raises:
         ValueError: If inputs have invalid dimensions or if parameters are invalid
@@ -90,29 +94,26 @@ def refresh_time(
         >>> import pandas as pd
         >>> from mfe.models.realized.refresh_time import refresh_time
         >>> # Example with numeric times
+        >>> prices1 = np.array([100, 101, 102, 103, 104])
+        >>> prices2 = np.array([50, 51, 52, 53, 54])
         >>> times1 = np.array([1, 3, 5, 7, 9])
         >>> times2 = np.array([2, 4, 6, 8, 10])
-        >>> refresh_times = refresh_time([times1, times2])
+        >>> refreshed_prices, refresh_times = refresh_time([prices1, prices2], [times1, times2])
         >>> refresh_times
         array([ 2.,  4.,  6.,  8., 10.])
-
-        >>> # Example with datetime times
-        >>> times1 = pd.to_datetime(['2023-01-01 09:30:00', '2023-01-01 09:31:00', 
-        ...                          '2023-01-01 09:32:00'])
-        >>> times2 = pd.to_datetime(['2023-01-01 09:30:30', '2023-01-01 09:31:30', 
-        ...                          '2023-01-01 09:32:30'])
-        >>> refresh_times = refresh_time([times1, times2], return_pandas=True)
-        >>> refresh_times
-        DatetimeIndex(['2023-01-01 09:30:30', '2023-01-01 09:31:30', 
-                       '2023-01-01 09:32:30'],
-                      dtype='datetime64[ns]', freq=None)
     """
     # Validate inputs
     if not isinstance(times_list, list):
         raise TypeError("times_list must be a list of time series")
+    
+    if not isinstance(price_arrays, list):
+        raise TypeError("price_arrays must be a list of price series")
 
     if len(times_list) < 2:
         raise ValueError("At least two time series must be provided")
+        
+    if len(price_arrays) != len(times_list):
+        raise ValueError("Number of price arrays must match number of time arrays")
 
     # Process each time series
     processed_times = []
@@ -242,7 +243,8 @@ def refresh_time(
         # Ensure all arrays are sorted
         for i, times in enumerate(time_arrays):
             if not np.all(np.diff(times) >= 0):
-                raise ValueError(f"Time series {i} is not monotonically increasing")
+                logger.warning(f"Time series {i} is not monotonically increasing. Sorting the array.")
+                time_arrays[i] = np.sort(times)
 
         # Compute refresh times using vectorized operations
         # Combine all unique time points
@@ -267,10 +269,32 @@ def refresh_time(
         max_next_obs = np.max(next_obs, axis=1)
 
         # Find points where max_next_obs changes
-        refresh_indices = np.where(np.diff(max_next_obs) > 0)[0] + 1
+        # First, handle the case where max_next_obs contains inf values
+        finite_indices = ~np.isinf(max_next_obs)
+        if np.any(finite_indices):
+            # Get only the finite values for diff calculation
+            finite_max_next_obs = max_next_obs[finite_indices]
+            # Find where these values change
+            changes = np.where(np.diff(finite_max_next_obs) > 0)[0]
+            # Map back to original indices
+            finite_indices_array = np.where(finite_indices)[0]
+            refresh_indices = finite_indices_array[changes + 1] if len(changes) > 0 else np.array([], dtype=int)
+        else:
+            refresh_indices = np.array([], dtype=int)
 
-        # Add the first point
-        refresh_indices = np.insert(refresh_indices, 0, 0)
+        # Add the first point if there are any finite values
+        if np.any(finite_indices):
+            first_finite_idx = np.where(finite_indices)[0][0]
+            refresh_indices = np.insert(refresh_indices, 0, first_finite_idx)
+        else:
+            # No finite values, return empty arrays
+            if return_indices:
+                empty_indices = [np.array([], dtype=int) for _ in time_arrays]
+                return np.array([]), empty_indices
+            else:
+                # For non-return_indices case, we need to return both prices and times
+                empty_prices = [np.array([]) for _ in time_arrays]
+                return empty_prices, np.array([])
 
         # Get the refresh times
         refresh_times_array = max_next_obs[refresh_indices]
@@ -297,12 +321,29 @@ def refresh_time(
             else:
                 return refresh_times_array, indices
         else:
+            # Process price arrays at refresh times
+            refreshed_prices = []
+            for i, prices in enumerate(price_arrays):
+                # Find indices of prices at refresh times
+                idx = np.zeros(len(refresh_times_array), dtype=int)
+                for j, rt in enumerate(refresh_times_array):
+                    # Find the last time point less than or equal to the refresh time
+                    idx[j] = np.searchsorted(time_arrays[i], rt, side='right') - 1
+                    # Ensure index is valid (not negative)
+                    idx[j] = max(0, idx[j])
+                
+                # Get prices at refresh times
+                refreshed_prices.append(prices[idx])
+            
+            # Convert list of arrays to a 2D numpy array
+            refreshed_prices = np.column_stack(refreshed_prices)
+
             if return_pandas and base_time is not None:
                 # Convert to DatetimeIndex
                 refresh_times_idx = seconds2wall(refresh_times_array, base_time)
-                return refresh_times_idx
+                return refreshed_prices, refresh_times_idx
             else:
-                return refresh_times_array
+                return refreshed_prices, refresh_times_array
 
 
 def refresh_time_prices(
@@ -386,7 +427,7 @@ def refresh_time_prices(
 
     # Compute refresh times
     refresh_times_result = refresh_time(
-        times_list,
+        prices_list, times_list,
         convert_to_seconds=convert_to_seconds,
         base_time=base_time,
         return_indices=False,

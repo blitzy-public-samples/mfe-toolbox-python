@@ -408,6 +408,21 @@ class RealizedVariance(BaseRealizedEstimator):
             # Use indices if times are not available
             x = np.arange(len(volatility))
         
+        # Ensure x and volatility have the same dimensions
+        if len(volatility) == 1 and len(x) > 1:
+            # If volatility is a single value but x has multiple points,
+            # we'll create a constant line by repeating the volatility value
+            volatility = np.repeat(volatility, len(x))
+        elif len(x) == 1 and len(volatility) > 1:
+            # If x is a single value but volatility has multiple points,
+            # we'll use indices for x instead
+            x = np.arange(len(volatility))
+        elif len(x) != len(volatility):
+            # If dimensions still don't match, use the smaller length
+            min_len = min(len(x), len(volatility))
+            x = x[:min_len]
+            volatility = volatility[:min_len]
+        
         # Plot volatility
         ax.plot(x, volatility, **kwargs)
         

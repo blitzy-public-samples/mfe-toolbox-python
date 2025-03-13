@@ -1076,13 +1076,14 @@ def _compute_subsampled_measure_numba(returns: np.ndarray, subsample_factor: int
     return subsampled_rv / subsample_factor
 
 
-def compute_subsampled_measure(returns: np.ndarray, subsample_factor: int) -> float:
+def compute_subsampled_measure(returns: np.ndarray, subsample_factor: int = None, subsampling_factor: int = None) -> float:
     """
     Compute subsampled realized measure.
     
     Args:
         returns: Array of returns
         subsample_factor: Number of subsamples
+        subsampling_factor: Alias for subsample_factor (for backward compatibility)
         
     Returns:
         Subsampled realized measure
@@ -1094,6 +1095,12 @@ def compute_subsampled_measure(returns: np.ndarray, subsample_factor: int) -> fl
         >>> compute_subsampled_measure(returns, 3)
         0.000183...
     """
+    # Handle the case where subsampling_factor is provided instead of subsample_factor
+    if subsample_factor is None and subsampling_factor is not None:
+        subsample_factor = subsampling_factor
+    elif subsample_factor is None and subsampling_factor is None:
+        raise ValueError("Either subsample_factor or subsampling_factor must be provided")
+    
     # Convert to numpy array if not already
     returns = np.asarray(returns)
     

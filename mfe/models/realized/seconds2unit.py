@@ -31,27 +31,27 @@ SECONDS_PER_DAY = 86400  # 24 hours * 60 minutes * 60 seconds
 
 
 @overload
-def seconds2unit(seconds: float) -> float:
+def seconds2unit(seconds: float, unit: str = 'day') -> float:
     ...
 
 
 @overload
-def seconds2unit(seconds: np.ndarray) -> np.ndarray:
+def seconds2unit(seconds: np.ndarray, unit: str = 'day') -> np.ndarray:
     ...
 
 
 @overload
-def seconds2unit(seconds: pd.Series) -> pd.Series:
+def seconds2unit(seconds: pd.Series, unit: str = 'day') -> pd.Series:
     ...
 
 
 @overload
-def seconds2unit(seconds: pd.DatetimeIndex) -> np.ndarray:
+def seconds2unit(seconds: pd.DatetimeIndex, unit: str = 'day') -> np.ndarray:
     ...
 
 
 
-def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, Sequence[float]]) -> Union[float, np.ndarray, pd.Series]:
+def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, Sequence[float]], unit: str = 'day') -> Union[float, np.ndarray, pd.Series]:
     """
     Convert seconds past midnight to normalized unit interval [0,1].
 
@@ -62,13 +62,16 @@ def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, 
     Args:
         seconds: Time in seconds past midnight. Can be a scalar value, NumPy array,
                 pandas Series, pandas DatetimeIndex, or any sequence convertible to NumPy array.
+        unit: The unit of time to normalize to. Default is 'day' (86400 seconds).
+              Other options include 'hour' (3600 seconds), 'minute' (60 seconds),
+              or any custom number of seconds.
 
     Returns:
         Normalized time in unit interval [0,1]. The return type matches the input type
         (scalar, NumPy array, or pandas Series).
 
     Raises:
-        ValueError: If input contains negative values or values greater than 86400 (seconds in a day)
+        ValueError: If input contains negative values or values greater than the unit period
         TypeError: If input type is not supported
 
     Examples:
@@ -96,6 +99,18 @@ def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, 
         >>> seconds2unit(times)
         array([0.  , 0.25, 0.5 , 0.75])
     """
+    # Determine the number of seconds in the unit period
+    if unit == 'day':
+        seconds_per_unit = SECONDS_PER_DAY
+    elif unit in ['hour', 'hours']:
+        seconds_per_unit = 3600
+    elif unit in ['minute', 'minutes']:
+        seconds_per_unit = 60
+    elif isinstance(unit, (int, float)):
+        seconds_per_unit = unit
+    else:
+        raise ValueError(f"Invalid unit: {unit}. Expected 'day', 'hour', 'hours', 'minute', 'minutes', or a number.")
+    
     # Handle pandas DatetimeIndex input
     if isinstance(seconds, pd.DatetimeIndex):
         # Extract time components and convert to seconds past midnight
@@ -126,7 +141,7 @@ def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, 
                                     nanoseconds / 1e9)
             
             # Create a new Series with the same index
-            unit_time = seconds_past_midnight / SECONDS_PER_DAY
+            unit_time = seconds_past_midnight / seconds_per_unit
             
             # Validate range
             if (unit_time < 0).any() or (unit_time > 1).any():
@@ -137,7 +152,7 @@ def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, 
         
         # Convert to numpy array for validation, then back to Series
         values = np.asarray(seconds)
-        unit_time = values / SECONDS_PER_DAY
+        unit_time = values / seconds_per_unit
         
         # Validate range
         if (unit_time < 0).any() or (unit_time > 1).any():
@@ -151,7 +166,7 @@ def seconds2unit(seconds: Union[float, np.ndarray, pd.Series, pd.DatetimeIndex, 
         seconds = np.asarray(seconds)
     
     # Perform the conversion
-    unit_time = seconds / SECONDS_PER_DAY
+    unit_time = seconds / seconds_per_unit
     
     # Validate range for array inputs
     if isinstance(unit_time, np.ndarray):

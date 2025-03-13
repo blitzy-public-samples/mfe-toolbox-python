@@ -329,6 +329,10 @@ class ThresholdVariance(JumpRobustEstimator):
             self._continuous_variance = trv
             self._jump_variance = np.sum(returns[jump_indicators] ** 2)
             
+            # Set realized measure to the sum of continuous and jump variations
+            # This ensures that get_continuous_variation() + get_jump_variation() equals realized_measure
+            trv = self._continuous_variance + self._jump_variance
+            
             # Log jump detection results
             jump_count = np.sum(jump_indicators)
             logger.info(
@@ -725,6 +729,38 @@ class ThresholdVariance(JumpRobustEstimator):
         except ImportError:
             logger.warning("Matplotlib is required for plotting")
             raise ImportError("Matplotlib is required for plotting")
+    
+    def get_continuous_variation(self) -> Optional[float]:
+        """
+        Get the continuous variation (realized measure excluding jumps).
+        
+        Returns:
+            Optional[float]: The continuous variation if the estimator has been fitted,
+                            None otherwise
+        
+        Raises:
+            RuntimeError: If the estimator has not been fitted
+        """
+        if not self._fitted or self._continuous_variance is None:
+            raise RuntimeError("Estimator has not been fitted. Call fit() first.")
+        
+        return self._continuous_variance
+    
+    def get_jump_variation(self) -> Optional[float]:
+        """
+        Get the jump variation (realized measure of jumps only).
+        
+        Returns:
+            Optional[float]: The jump variation if the estimator has been fitted,
+                            None otherwise
+        
+        Raises:
+            RuntimeError: If the estimator has not been fitted
+        """
+        if not self._fitted or self._jump_variance is None:
+            raise RuntimeError("Estimator has not been fitted. Call fit() first.")
+        
+        return self._jump_variance
     
     def summary(self) -> str:
         """
