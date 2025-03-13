@@ -102,12 +102,11 @@ from .utils import (
 try:
     from ._numba_core import (
         _realized_variance_core,
-        _realized_bipower_variation_core,
+        _bipower_variation_core as _realized_bipower_variation_core,
         _realized_quarticity_core,
         _realized_kernel_core,
         _realized_semivariance_core,
-        _realized_covariance_core,
-        _threshold_detection_core
+        _detect_jumps_core as _threshold_detection_core
     )
     _has_numba = True
 except ImportError:

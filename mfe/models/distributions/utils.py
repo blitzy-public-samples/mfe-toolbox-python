@@ -858,37 +858,36 @@ def create_qq_plot_data(data: np.ndarray,
         df = params.get("df", 5.0)
         lambda_ = params.get("lambda_", 0.0)
         
-        # This is an approximation as there's no direct ppf for skewed t in scipy
-        # We use a numerical approximation based on the CDF
-        theoretical_quantiles = np.zeros_like(p)
+        # Standardize data
+        loc = np.mean(data)
+        scale = np.std(data, ddof=1)
         
         # Constants for the distribution
         a = 4 * lambda_ * (df - 2) / ((1 - lambda_**2) * (df - 1))
         b = np.sqrt(1 + 3 * lambda_**2 - a**2)
         
-        for i, pi in enumerate(p):
-            # Find x such that CDF(x) = pi using numerical optimization
-            def objective(x):
-                # Compute CDF using the formula
-                if x < -a/b:
-                    cdf = (1 - lambda_) * stats.t.cdf(
-                        (b * x + a) / (1 - lambda_), df=df
-                    )
-                else:
-                    cdf = (1 - lambda_) + (1 + lambda_) * (
-                        stats.t.cdf((b * x + a) / (1 + lambda_), df=df) - 0.5
-                    )
-                return (cdf - pi)**2
+        def cdf(x):
+            # Standardize x
+            x_std = (x - loc) / scale
+            # Compute CDF for skewed t using vectorized operations
+            result = np.zeros_like(x_std, dtype=float)
             
-            # Initial guess based on normal distribution
-            x0 = stats.norm.ppf(pi)
-            result = optimize.minimize_scalar(objective, method='brent')
-            theoretical_quantiles[i] = result.x
-        
-        # Scale and shift to match data
-        loc = np.mean(data)
-        scale = np.std(data, ddof=1)
-        theoretical_quantiles = loc + scale * theoretical_quantiles
+            # Create masks for the two conditions
+            mask_lower = x_std < -a/b
+            mask_upper = ~mask_lower
+            
+            # Apply the appropriate formula for each region
+            if np.any(mask_lower):
+                result[mask_lower] = (1 - lambda_) * stats.t.cdf(
+                    (b * x_std[mask_lower] + a) / (1 - lambda_), df=df
+                )
+            
+            if np.any(mask_upper):
+                result[mask_upper] = (1 - lambda_) + (1 + lambda_) * (
+                    stats.t.cdf((b * x_std[mask_upper] + a) / (1 + lambda_), df=df) - 0.5
+                )
+                
+            return result
     
     else:
         raise ValueError(f"Unsupported distribution type: {dist_type}")
@@ -1131,15 +1130,25 @@ def kolmogorov_smirnov_test(data: np.ndarray,
         def cdf(x):
             # Standardize x
             x_std = (x - loc) / scale
-            # Compute CDF for skewed t
-            if x_std < -a/b:
-                return (1 - lambda_) * stats.t.cdf(
-                    (b * x_std + a) / (1 - lambda_), df=df
+            # Compute CDF for skewed t using vectorized operations
+            result = np.zeros_like(x_std, dtype=float)
+            
+            # Create masks for the two conditions
+            mask_lower = x_std < -a/b
+            mask_upper = ~mask_lower
+            
+            # Apply the appropriate formula for each region
+            if np.any(mask_lower):
+                result[mask_lower] = (1 - lambda_) * stats.t.cdf(
+                    (b * x_std[mask_lower] + a) / (1 - lambda_), df=df
                 )
-            else:
-                return (1 - lambda_) + (1 + lambda_) * (
-                    stats.t.cdf((b * x_std + a) / (1 + lambda_), df=df) - 0.5
+            
+            if np.any(mask_upper):
+                result[mask_upper] = (1 - lambda_) + (1 + lambda_) * (
+                    stats.t.cdf((b * x_std[mask_upper] + a) / (1 + lambda_), df=df) - 0.5
                 )
+                
+            return result
     
     else:
         raise ValueError(f"Unsupported distribution type: {dist_type}")
