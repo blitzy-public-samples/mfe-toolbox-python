@@ -25,15 +25,19 @@ from pathlib import Path
 # PyQt6 imports
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QMessageBox, QSplashScreen,
-    QFileDialog, QProgressDialog
+    QFileDialog, QProgressDialog, QToolBar
 )
 from PyQt6.QtCore import Qt, QTimer, QSize, QSettings, pyqtSlot, QEvent
 from PyQt6.QtGui import QIcon, QPixmap, QCloseEvent, QFontMetrics
 
+# qasync for Qt/asyncio integration
+import qasync
+from qasync import QEventLoop, asyncSlot
+
 # Matplotlib integration
 import matplotlib
-matplotlib.use('Qt5Agg')  # Use Qt5Agg backend for matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+matplotlib.use('qtagg')  # Use qtagg backend for matplotlib
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 # MFE Toolbox imports
@@ -118,6 +122,13 @@ class ARMAXApplication:
         self.app.setOrganizationName("MFE Toolbox")
         self.app.setOrganizationDomain("mfe-toolbox.org")
         
+        # Set up asyncio integration with Qt
+        loop = QEventLoop(self.app)
+        asyncio.set_event_loop(loop)
+        
+        # Set up exception handling
+        sys.excepthook = self.exception_hook
+        
         # Load application settings
         self.settings = QSettings()
         
@@ -133,6 +144,11 @@ class ARMAXApplication:
         
         splash.showMessage("Initializing view...", Qt.AlignmentFlag.AlignBottom)
         self.view = ARMAXView()
+        
+        # Set object names for toolbars
+        for toolbar in self.view.findChildren(QToolBar):
+            if not toolbar.objectName():
+                toolbar.setObjectName(toolbar.windowTitle() or "MainToolBar")
         
         splash.showMessage("Initializing controller...", Qt.AlignmentFlag.AlignBottom)
         self.controller = ARMAXController(self.model, self.view)
@@ -186,48 +202,42 @@ class ARMAXApplication:
         
         logger.debug("Application state saved")
     
+    def exception_hook(self, exctype, value, traceback_obj):
+        """Handle uncaught exceptions."""
+        error_msg = ''.join(traceback.format_exception(exctype, value, traceback_obj))
+        logger.critical(f"Uncaught exception: {error_msg}")
+        
+        # Show error dialog
+        error_dialog = QMessageBox()
+        error_dialog.setIcon(QMessageBox.Icon.Critical)
+        error_dialog.setWindowTitle("Error")
+        error_dialog.setText("An unexpected error occurred.")
+        error_dialog.setInformativeText(str(value))
+        error_dialog.setDetailedText(error_msg)
+        error_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        error_dialog.exec()
+    
     def run(self) -> int:
         """
-        Run the application main loop.
+        Run the application.
         
         Returns:
-            int: Application exit code
+            Application exit code
         """
-        if self.app is None:
-            raise RuntimeError("Application not initialized. Call initialize() first.")
-        
-        # Install exception hook for uncaught exceptions
-        sys._excepthook = sys.excepthook
-        
-        def exception_hook(exctype, value, traceback_obj):
-            """Handle uncaught exceptions."""
-            error_msg = ''.join(traceback.format_exception(exctype, value, traceback_obj))
-            logger.critical(f"Uncaught exception: {error_msg}")
+        try:
+            if self.app is None:
+                raise RuntimeError("Application not initialized. Call initialize() first.")
             
-            # Show error dialog
-            error_dialog = QMessageBox()
-            error_dialog.setIcon(QMessageBox.Icon.Critical)
-            error_dialog.setWindowTitle("Error")
-            error_dialog.setText("An unexpected error occurred.")
-            error_dialog.setInformativeText(str(value))
-            error_dialog.setDetailedText(error_msg)
-            error_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
-            error_dialog.exec()
+            # Get the event loop
+            loop = asyncio.get_event_loop()
             
-            # Call the original exception hook
-            sys._excepthook(exctype, value, traceback_obj)
-        
-        sys.excepthook = exception_hook
-        
-        # Run the application
-        logger.info("Starting ARMAX GUI application main loop")
-        exit_code = self.app.exec()
-        
-        # Save application state before exiting
-        self._save_state()
-        
-        logger.info(f"ARMAX GUI application exited with code {exit_code}")
-        return exit_code
+            # Run the event loop
+            with loop:
+                return self.app.exec()
+                
+        except Exception as e:
+            logger.error(f"Error running application: {e}")
+            return 1
     
     def shutdown(self) -> None:
         """Perform cleanup operations before application shutdown."""
@@ -337,18 +347,17 @@ class AsyncHelper:
 
 
 def main():
-    """
-    Main entry point for the ARMAX GUI application.
-    
-    This function initializes and runs the ARMAX application.
-    """
-    # Create and initialize the application
+    """Application entry point."""
     app = ARMAXApplication()
-    app.initialize(sys.argv)
-    
-    # Run the application
-    return app.run()
+    try:
+        app.initialize(sys.argv)
+        return app.run()
+    except Exception as e:
+        logger.error(f"Application error: {e}")
+        return 1
+    finally:
+        app.shutdown()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())

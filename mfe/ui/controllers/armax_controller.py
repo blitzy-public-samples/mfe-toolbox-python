@@ -25,6 +25,8 @@ import pandas as pd
 
 # PyQt6 imports
 from PyQt6.QtCore import QObject, pyqtSlot, QTimer
+import qasync
+from qasync import QEventLoop, asyncSlot
 
 # Import models and views
 from mfe.ui.models.armax_model import ARMAXModel, ARMAXModelResults
@@ -218,8 +220,8 @@ class ARMAXController(QObject):
             )
             return
         
-        # Start asynchronous estimation
-        self._start_estimation()
+        # Start asynchronous estimation using qasync
+        asyncio.get_event_loop().create_task(self._estimate_model_async())
     
     @pyqtSlot()
     def _on_reset_clicked(self) -> None:
@@ -253,8 +255,10 @@ class ARMAXController(QObject):
     
     @pyqtSlot()
     def _on_about_clicked(self) -> None:
-        """Handle about button click."""
-        # Create about dialog if it doesn't exist
+        """Handle About button click."""
+        logger.debug("About button clicked")
+        
+        # Create dialog if not exists
         if self.about_dialog is None:
             self.about_dialog = AboutDialogView(self.view)
             
@@ -264,8 +268,12 @@ class ARMAXController(QObject):
         # Set dialog content
         self.about_dialog.set_content(self.about_model.get_dialog_content())
         
-        # Load logo asynchronously
-        asyncio.create_task(self._load_about_dialog_logo())
+        # Load logo synchronously for now
+        try:
+            logo_path = self.about_model.logo_path
+            self.about_dialog.load_logo(logo_path)
+        except Exception as e:
+            logger.error(f"Error loading About dialog logo: {e}")
         
         # Show dialog
         self.about_dialog.show()
@@ -421,8 +429,8 @@ class ARMAXController(QObject):
     # Helper methods
     def _start_estimation(self) -> None:
         """Start asynchronous model estimation."""
-        # Create and start the estimation task
-        self._estimation_task = asyncio.create_task(self._estimate_model_async())
+        # Create and start the estimation task using qasync
+        asyncio.get_event_loop().create_task(self._estimate_model_async())
         logger.debug("Estimation task started")
     
     async def _estimate_model_async(self) -> None:
@@ -503,7 +511,7 @@ class ARMAXController(QObject):
             confidence_level: Confidence level for prediction intervals
         """
         # Create and start the forecast task
-        self._forecast_task = asyncio.create_task(
+        self._forecast_task = asyncio.get_event_loop().create_task(
             self._forecast_async(steps, confidence_level)
         )
         logger.debug(f"Forecast task started for {steps} steps")
@@ -743,17 +751,14 @@ class ARMAXController(QObject):
             else:
                 raise ValueError("No parameter table available to save")
     
-    async def _load_about_dialog_logo(self) -> None:
-        """Load the logo for the About dialog asynchronously."""
-        if self.about_dialog is None:
-            return
+    def cleanup(self) -> None:
+        """Clean up resources before application shutdown."""
+        # Cancel any running estimation tasks
+        if hasattr(self, '_estimation_task') and self._estimation_task is not None:
+            self._estimation_task.cancel()
         
-        try:
-            # Get logo path from model
-            logo_path = self.about_model.logo_path
-            
-            # Load logo asynchronously
-            await self.about_dialog.load_logo_async(logo_path)
-            
-        except Exception as e:
-            logger.error(f"Error loading About dialog logo: {e}")
+        # Close any open dialogs
+        if hasattr(self, 'about_dialog') and self.about_dialog is not None:
+            self.about_dialog.close()
+        
+        logger.debug("ARMAX controller cleanup completed")

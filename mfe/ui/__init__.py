@@ -42,16 +42,16 @@ __version__ = "4.0.0"
 
 # Import main application class to make it available at the package level
 try:
-    from .armax_app import ARMAXApp
+    from .armax_app import ARMAXApplication as ARMAXApp
 except ImportError:
     # Create a placeholder for ARMAXApp if it's not available
     logger = logging.getLogger("mfe.ui")
     logger.warning("ARMAXApp not available. UI functionality will be limited.")
     
     class ARMAXApp:
-        """Placeholder for ARMAXApp when it's not available."""
+        """Placeholder for ARMAXApp when PyQt6 is not available."""
         def __init__(self, *args, **kwargs):
-            raise NotImplementedError("ARMAXApp is not available in this installation.")
+            raise NotImplementedError("ARMAXApp is not available. Please install PyQt6.")
 
 # Import dialog components
 from .about_dialog import AboutDialog

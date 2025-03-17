@@ -40,7 +40,7 @@ class ARMAXModelParameters:
     ma_order: int = 0
     include_constant: bool = True
     exog_variables: List[str] = field(default_factory=list)
-    estimation_method: str = "css-mle"
+    estimation_method: str = "statespace"
     max_iterations: int = 500
     convergence_tolerance: float = 1e-8
     display_diagnostics: bool = True
@@ -73,7 +73,7 @@ class ARMAXModelParameters:
             )
         
         # Validate estimation method
-        valid_methods = ["css", "mle", "css-mle"]
+        valid_methods = ["statespace", "innovations_mle", "hannan_rissanen", "burg", "innovations", "yule_walker"]
         if self.estimation_method not in valid_methods:
             raise ModelSpecificationError(
                 f"Invalid estimation method: {self.estimation_method}",
@@ -381,7 +381,7 @@ class ARMAXModel:
         Raises:
             ModelSpecificationError: If the value is invalid
         """
-        valid_methods = ["css", "mle", "css-mle"]
+        valid_methods = ["statespace", "innovations_mle", "hannan_rissanen", "burg", "innovations", "yule_walker"]
         if value not in valid_methods:
             raise ModelSpecificationError(
                 f"Invalid estimation method: {value}",
@@ -666,8 +666,7 @@ class ARMAXModel:
             # Fit the model
             fit_result = model.fit(
                 method=self.parameters.estimation_method,
-                maxiter=self.parameters.max_iterations,
-                disp=False
+                method_kwargs={'maxiter': self.parameters.max_iterations}
             )
             
             # Check for cancellation
@@ -716,7 +715,7 @@ class ARMAXModel:
                 results.exog_params = params
             
             # Extract model statistics
-            results.sigma2 = fit_result.sigma2
+            results.sigma2 = fit_result.scale
             results.log_likelihood = fit_result.llf
             results.aic = fit_result.aic
             results.bic = fit_result.bic
@@ -1107,8 +1106,7 @@ class ARMAXModel:
             # Fit the model
             fit_result = model.fit(
                 method=self.parameters.estimation_method,
-                maxiter=self.parameters.max_iterations,
-                disp=False
+                method_kwargs={'maxiter': self.parameters.max_iterations}
             )
             
             # Check for cancellation
@@ -1135,15 +1133,27 @@ class ARMAXModel:
             # Extract forecast results
             forecasts = forecast_result.predicted_mean
             conf_int = forecast_result.conf_int(alpha=alpha)
-            lower_bounds = conf_int.iloc[:, 0].values
-            upper_bounds = conf_int.iloc[:, 1].values
+            
+            # Handle different return types for conf_int (DataFrame or ndarray)
+            if hasattr(conf_int, 'iloc'):  # It's a DataFrame
+                lower_bounds = conf_int.iloc[:, 0].values
+                upper_bounds = conf_int.iloc[:, 1].values
+            else:  # It's a NumPy array
+                lower_bounds = conf_int[:, 0]
+                upper_bounds = conf_int[:, 1]
+            
+            # Handle different return types for forecasts
+            if hasattr(forecasts, 'values'):
+                forecast_values = forecasts.values
+            else:
+                forecast_values = forecasts
             
             # Report progress
             if progress_callback:
                 await progress_callback(1.0, "Forecasting complete")
             
             logger.info(f"Generated {steps}-step forecasts successfully")
-            return forecasts.values, lower_bounds, upper_bounds
+            return forecast_values, lower_bounds, upper_bounds
             
         except Exception as e:
             logger.error(f"Error during ARMAX model forecasting: {str(e)}")

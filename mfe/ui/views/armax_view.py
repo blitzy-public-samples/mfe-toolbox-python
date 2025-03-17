@@ -24,7 +24,8 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QPushButton, QSpinBox, QCheckBox, QComboBox,
     QTabWidget, QGroupBox, QSplitter, QFrame, QScrollArea, QSizePolicy,
-    QFileDialog, QMessageBox, QProgressBar, QStatusBar, QToolBar, QToolButton
+    QFileDialog, QMessageBox, QProgressBar, QStatusBar, QToolBar, QToolButton,
+    QApplication
 )
 from PyQt6.QtCore import (
     Qt, QSize, QTimer, pyqtSignal, pyqtSlot, QSettings, QEvent
@@ -35,9 +36,9 @@ from PyQt6.QtGui import (
 
 # Matplotlib integration
 import matplotlib
-matplotlib.use('qt5agg')  # Use qt5agg backend for matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+matplotlib.use('qtagg')  # Use qtagg backend for matplotlib
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
@@ -443,6 +444,7 @@ class ARMAXView(QMainWindow):
         """Initialize the toolbar."""
         # Create toolbar
         self.toolbar = QToolBar("Main Toolbar")
+        self.toolbar.setObjectName("MainToolBar")  # Set object name for state saving
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
         
         # Load data action
